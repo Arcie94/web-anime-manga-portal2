@@ -1,85 +1,84 @@
 ---
 import Layout from "../layouts/Layout.astro";
-import HeroBillboard from "../components/HeroBillboard";
+import HeroCarousel from "../components/HeroCarousel";
 import ContentRow from "../components/ContentRow";
 import CategoryRow from "../components/CategoryRow";
 import { apiFetch } from "../lib/api";
+import { FEATURED_MANGA } from "../data/featuredManga";
 
 export const prerender = false;
 
-// Mock Hero Data for Manga
-const featuredHero = {
-  title: "Chainsaw Man",
-  image:
-    "https://wallpapers.com/images/hd/chainsaw-man-denji-looking-up-art-698f2441c22s228g.jpg",
-  cover: "/images/chainsaw-man-poster.png", // Local Generated Placeholder
-  slug: "chainsaw-man",
-  type: "manga",
-  desc: "Denji has a simple dream—to live a happy and peaceful life, spending time with a girl he likes. This is a far cry from reality, however, as Denji is forced by the yakuza into killing devils in order to pay off his crushing debts.",
-  rating: "9.5",
-};
+// Fetch homepage data from Sankavollerei Comic API
+let trendingManga: any[] = [];
+let ongoingManga: any[] = [];
 
-// Reuse manga list for rows for now (mocking variety)
-// const popularManga = [...mangaList].reverse();
-// const manhwaList = mangaList; // In real app, fetch type=manhwa
+try {
+  const homeData = await apiFetch<{
+    data: { trending: any[]; ongoing: any[] };
+  }>("/manga/home");
+
+  if (homeData?.data) {
+    trendingManga = homeData.data.trending || [];
+    ongoingManga = homeData.data.ongoing || [];
+  }
+} catch (error) {
+  console.error("Failed to fetch manga home data:", error);
+}
 ---
 
-<Layout title="Manga Library - AnimePlay">
-  <!-- Back Button -->
-  <div class="fixed top-4 left-4 z-50">
-    <button
-      onclick="history.length > 1 ? history.back() : window.location.href = '/'"
-      class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white border border-white/10 transition-all hover:scale-110 active:scale-95 backdrop-blur-sm"
-      aria-label="Kembali"
-    >
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke-width="2.5"
-        stroke="currentColor"
-        class="w-5 h-5 md:w-6 md:h-6"
-      >
-        <path
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"></path>
-      </svg>
-    </button>
-  </div>
-  {/* Hero Section */}
-  <div className="relative z-0">
-    <HeroBillboard item={featuredHero as any} client:load />
+<Layout title="AnimePlay - Read Manga Online">
+  {/* Hero Carousel */}
+  <div class="relative z-0">
+    <HeroCarousel featured={FEATURED_MANGA} client:only="react" />
   </div>
 
   {/* Sub-Header Categories */}
   <CategoryRow client:visible />
 
   {/* Content Rows */}
-  <div className="relative z-20 pb-20 space-y-2 bg-zinc-950 min-h-screen">
-    <ContentRow
-      title="Popular Manga"
-      endpoint="/manga/search?q=a"
-      type="manga"
-      client:load
-    />
-    <ContentRow
-      title="Latest Updates"
-      endpoint="/manga/search?q=b"
-      type="manga"
-      client:load
-    />
-    <ContentRow
-      title="Top Manhwa"
-      endpoint="/manga/search?q=c"
-      type="manga"
-      client:load
-    />
-    <ContentRow
-      title="Read It Again"
-      endpoint="/manga/search?q=d"
-      type="manga"
-      client:load
-    />
-  </div>
+  <ContentRow
+    title="Trending Manga"
+    endpoint="/manga/trending"
+    dataKey="mangaList"
+    type="manga"
+    client:load
+  />
+
+  <ContentRow
+    title="Ongoing Manga"
+    endpoint="/manga/ongoing"
+    dataKey="mangaList"
+    type="manga"
+    client:load
+  />
+
+  {/* Genre Sections */}
+  <ContentRow
+    title="Action Manga"
+    endpoint="/manga/genres/Action"
+    dataKey="mangaList"
+    type="manga"
+    client:visible
+  />
+  <ContentRow
+    title="Romance Manga"
+    endpoint="/manga/genres/Romance"
+    dataKey="mangaList"
+    type="manga"
+    client:visible
+  />
+  <ContentRow
+    title="Drama Manga"
+    endpoint="/manga/genres/Drama"
+    dataKey="mangaList"
+    type="manga"
+    client:visible
+  />
+  <ContentRow
+    title="Fantasy Manga"
+    endpoint="/manga/genres/Fantasy"
+    dataKey="mangaList"
+    type="manga"
+    client:visible
+  />
 </Layout>

@@ -140,8 +140,17 @@ func (s *SankavollereiService) makeRequest(endpoint string, result interface{}) 
 		return fmt.Errorf("rate limit exceeded, please wait")
 	}
 
-	// Build URL
-	url := fmt.Sprintf("%s/anime/%s%s", s.BaseURL, s.Prefix, endpoint)
+	// Build URL - check if endpoint starts with "comic/"
+	var url string
+	if len(endpoint) >= 6 && endpoint[:6] == "comic/" {
+		// For manga/comic endpoints, use the endpoint directly from BaseURL
+		// Example: "comic/home" -> "https://www.sankavollerei.com/comic/home"
+		url = fmt.Sprintf("%s/%s", s.BaseURL, endpoint)
+	} else {
+		// For anime endpoints, add /anime/ prefix and service prefix if exists
+		// Example: "home" -> "https://www.sankavollerei.com/anime/home"
+		url = fmt.Sprintf("%s/anime/%s%s", s.BaseURL, s.Prefix, endpoint)
+	}
 
 	// Make request
 	resp, err := s.Client.Get(url)

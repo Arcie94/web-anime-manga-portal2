@@ -11,8 +11,8 @@ let error = "";
 
 if (slug) {
   try {
-    const res = await apiFetch<{ data: string[] }>(`/manga/chapter/${slug}`);
-    images = res.data || [];
+    const res = await apiFetch<any>(`/manga/chapter/${slug}`);
+    images = res.images || [];
   } catch (e) {
     error = "Gagal memuat gambar chapter.";
   }

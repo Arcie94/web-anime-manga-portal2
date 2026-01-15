@@ -23,9 +23,14 @@ func SetupRoutes(app *fiber.App) {
 
 	mangaController := controllers.NewMangaController()
 	manga := api.Group("/manga")
+	manga.Get("/home", mangaController.GetHome)         // NEW: Home endpoint
+	manga.Get("/trending", mangaController.GetTrending) // NEW: Trending endpoint
+	manga.Get("/ongoing", mangaController.GetOngoing)   // NEW: Ongoing endpoint
 	manga.Get("/search", mangaController.Search)
+	manga.Get("/genres/:slug", mangaController.GetGenre) // NEW: Genres endpoint (plural)
+	manga.Get("/genre/:slug", mangaController.GetGenre)  // Alias for consistency
 	manga.Get("/:slug", mangaController.GetDetail)
-	manga.Get("/chapter/:slug", mangaController.GetChapter)
+	manga.Get("/chapter/:chapterId", mangaController.GetChapter)
 
 	userController := controllers.NewUserController()
 	auth := api.Group("/auth")

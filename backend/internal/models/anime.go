@@ -131,3 +131,68 @@ type LatestResponse struct {
 		Episodes []LatestEpisode `json:"episodes"`
 	} `json:"data"`
 }
+
+// ============ MANGA MODELS ============
+// Manga uses similar structure as Anime, but with some differences
+type Manga struct {
+	Title     string      `json:"title"`
+	Link      string      `json:"link"` // For slug extraction: "/manga/slug-name/"
+	Slug      string      `json:"slug"` // Extracted from link
+	Cover     string      `json:"cover"`
+	Image     string      `json:"image"` // Sankavollerei uses 'image' field
+	Poster    string      `json:"poster"`
+	Thumbnail string      `json:"thumbnail"`
+	Synopsis  interface{} `json:"synopsis"`
+	Genre     string      `json:"genre"`
+	Status    string      `json:"status"`
+	Chapter   string      `json:"chapter"` // Latest chapter from list
+	TimeAgo   string      `json:"time_ago"`
+}
+
+type Chapter struct {
+	Title     string `json:"title"`
+	Chapter   string `json:"chapter"` // Display name like "Chapter 123"
+	ChapterID string `json:"chapterId"`
+	Slug      string `json:"slug"`
+	Date      string `json:"date"`
+}
+
+type MangaDetail struct {
+	Title    string      `json:"title"`
+	Image    string      `json:"image"`
+	Synopsis interface{} `json:"synopsis"`
+	Metadata struct {
+		Author string `json:"author"`
+		Status string `json:"status"`
+		Type   string `json:"type"`
+	} `json:"metadata"`
+	Chapters []Chapter `json:"chapters"` // Sankavollerei uses 'chapters' not 'chapterList'
+}
+
+// MangaDetailResponse - Response from /comic/comic/:slug
+type MangaDetailResponse struct {
+	Title    string      `json:"title"`
+	Image    string      `json:"image"`
+	Synopsis interface{} `json:"synopsis"`
+	Metadata struct {
+		Author string `json:"author"`
+		Status string `json:"status"`
+		Type   string `json:"type"`
+	} `json:"metadata"`
+	Chapters []Chapter `json:"chapters"`
+}
+
+// MangaList Response - Response from manga list endpoints
+type MangaListResponse struct {
+	Data struct {
+		MangaList []Manga `json:"mangaList"`
+	} `json:"data"`
+}
+
+// ChapterResponse - Response from /comic/chapter/:chapterId
+type ChapterResponse struct {
+	Title     string   `json:"title"`
+	ChapterID string   `json:"chapterId"`
+	MangaID   string   `json:"mangaId"`
+	Images    []string `json:"images"` // Array of image URLs for the chapter
+}

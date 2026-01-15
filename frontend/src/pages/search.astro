@@ -20,6 +20,8 @@ if (q) {
     if (res && res.data) {
       if (Array.isArray(res.data.animeList)) {
         results = res.data.animeList;
+      } else if (Array.isArray(res.data.mangaList)) {
+        results = res.data.mangaList;
       } else if (Array.isArray(res.data)) {
         // Fallback/Legacy
         results = res.data;

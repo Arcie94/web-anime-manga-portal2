@@ -1,7 +1,7 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import { apiFetch } from "../../lib/api";
-import { parseSynopsis } from "../../lib/utils";
+import { parseSynopsis, getAnimeImage } from "../../lib/utils";
 
 export const prerender = false;
 
@@ -12,22 +12,22 @@ let error = "";
 
 if (slug) {
   try {
-    const res = await apiFetch<{ data: any }>(`/manga/${slug}`);
-    manga = res.data;
+    const res = await apiFetch<any>(`/manga/${slug}`);
+    manga = res; // Response is directly the manga object, not wrapped in 'data'
   } catch (e) {
     error = "Gagal memuat detail manga.";
   }
 }
 
-if (!manga) {
+if (!manga || !manga.title) {
   return Astro.redirect("/404");
 }
 
-// Get first chapter for "Read Now" button
-const firstChapter = manga.chapterList?.[manga.chapterList.length - 1];
+// Get first chapter for "Read Now" button - using 'chapters' field
+const firstChapter = manga.chapters?.[manga.chapters.length - 1];
 ---
 
-<Layout title={`${manga.title} - AnimePlay`}>
+<Layout title={`${manga.title || ""} - AnimePlay`} hideHeader={true}>
   <!-- Back Button -->
   <div class="fixed top-4 left-4 z-50">
     <button
@@ -57,22 +57,23 @@ const firstChapter = manga.chapterList?.[manga.chapterList.length - 1];
   >
     <div class="absolute inset-0 bg-zinc-950/80 z-10"></div>
     <img
-      src={manga.cover}
+      src={getAnimeImage(manga)}
       alt="Ambient Background"
       class="w-full h-full object-cover blur-[50px] scale-125 opacity-50"
     />
   </div>
 
-  <!-- Hero Section -->
+  <!-- Hero Section - DramaPlay Style -->
   <div class="relative z-10 pb-4 md:pb-8 pt-20 md:pt-28">
     <div class="container mx-auto px-4 max-w-6xl">
       <div class="flex gap-4 md:gap-8 items-start">
-        <!-- Poster -->
-        <div class="w-28 md:w-52 lg:w-64 flex-shrink-0">
+        <!-- Poster - Mobile Responsive -->
+        <div class="w-32 sm:w-40 md:w-52 lg:w-64 flex-shrink-0">
           <img
-            src={manga.cover}
+            src={getAnimeImage(manga)}
             alt={manga.title}
-            class="w-full rounded-lg shadow-2xl ring-1 ring-white/10"
+            class="w-full aspect-[2/3] object-cover rounded-lg shadow-2xl ring-1 ring-white/10 block"
+            loading="eager"
           />
         </div>
 
@@ -84,7 +85,7 @@ const firstChapter = manga.chapterList?.[manga.chapterList.length - 1];
             {manga.title}
           </h1>
 
-          <!-- Metadata -->
+          <!-- Metadata badges -->
           <div
             class="flex flex-wrap items-center gap-2 md:gap-3 text-xs md:text-base"
           >
@@ -92,34 +93,24 @@ const firstChapter = manga.chapterList?.[manga.chapterList.length - 1];
               class="px-2 py-0.5 rounded bg-white/10 text-white font-medium border border-white/10"
               >Manga</span
             >
-            {
-              manga.status && (
-                <>
-                  <span class="text-zinc-400">•</span>
-                  <span class="text-zinc-300">{manga.status}</span>
-                </>
-              )
-            }
-            {
-              manga.author && (
-                <>
-                  <span class="text-zinc-400">•</span>
-                  <span class="text-zinc-300">{manga.author}</span>
-                </>
-              )
-            }
+            <span class="text-zinc-400">•</span>
+            <span class="text-zinc-300">Likes</span>
+            <span class="text-zinc-400">•</span>
+            <span class="text-zinc-300"
+              >{manga.chapters?.length || "?"} Chapters</span
+            >
           </div>
 
-          <!-- Action Buttons -->
+          <!-- Action Buttons - Responsive flex -->
           <div class="flex gap-3 pt-2">
             {
               firstChapter && (
                 <a
-                  href={`/manga/read/${firstChapter.slug}`}
-                  class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 md:px-8 md:py-3.5 rounded-full font-bold text-sm md:text-lg transition-all shadow-lg hover:shadow-blue-600/20 hover:scale-105"
+                  href={`/manga/read/${firstChapter.slug || firstChapter.chapterId}`}
+                  class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 md:px-8 md:py-3.5 rounded-full font-bold text-sm md:text-lg transition-all shadow-lg hover:shadow-red-600/20 hover:scale-105"
                 >
                   <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M9 4.804A7.968 7.968 0 0 0 5.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 0 1 5.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0 1 14.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0 0 14.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 1 1-2 0V4.804Z" />
+                    <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
                   </svg>
                   Read Now
                 </a>
@@ -148,15 +139,15 @@ const firstChapter = manga.chapterList?.[manga.chapterList.length - 1];
     </div>
   </div>
 
-  <!-- Synopsis -->
+  <!-- Synopsis - Static -->
   {
-    manga.description && (
+    manga.synopsis && (
       <div class="relative z-10 container mx-auto px-4 pb-8 max-w-6xl">
         <h2 class="text-lg md:text-xl font-bold text-white mb-2 opacity-90">
           Synopsis
         </h2>
         <p class="text-zinc-300 text-sm md:text-base leading-relaxed whitespace-pre-line max-w-4xl">
-          {parseSynopsis(manga.description)}
+          {parseSynopsis(manga.synopsis)}
         </p>
       </div>
     )
@@ -169,22 +160,30 @@ const firstChapter = manga.chapterList?.[manga.chapterList.length - 1];
     >
       <h2 class="text-xl md:text-2xl font-bold text-white">Chapters</h2>
       <span class="text-sm text-zinc-400">
-        {manga.chapterList?.length || 0} Available
+        {manga.chapters?.length || 0} Available
       </span>
     </div>
 
     <div class="grid grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2 md:gap-3">
       {
-        manga.chapterList?.map((ch: any, idx: number) => (
-          <a
-            href={`/manga/read/${ch.slug}`}
-            class="aspect-square bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-md md:rounded-lg flex items-center justify-center text-zinc-300 hover:text-white font-bold text-sm md:text-lg transition-all group relative overflow-hidden"
-          >
-            <span class="group-hover:scale-110 transition-transform relative z-10">
-              {manga.chapterList.length - idx}
-            </span>
-          </a>
-        ))
+        manga.chapters?.map((ch: any, idx: number) => {
+          // Extract chapter number from chapter field or slug
+          const displayNum = ch.chapter
+            ? ch.chapter.replace(/chapter\s*/i, "").trim()
+            : (ch.slug || ch.chapterId)?.match(/chapter-(\d+)/)?.[1] ||
+              manga.chapters.length - idx;
+
+          return (
+            <a
+              href={`/manga/read/${ch.slug || ch.chapterId}`}
+              class="aspect-square bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-md md:rounded-lg flex items-center justify-center text-zinc-300 hover:text-white font-bold text-sm md:text-lg transition-all group relative overflow-hidden"
+            >
+              <span class="group-hover:scale-110 transition-transform relative z-10">
+                {displayNum}
+              </span>
+            </a>
+          );
+        })
       }
     </div>
   </div>
