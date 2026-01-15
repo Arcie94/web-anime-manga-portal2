@@ -1,0 +1,78 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import CategoryRow from "../../../components/CategoryRow";
+import AnimeGrid from "../../../components/AnimeGrid";
+import { apiFetch } from "../../../lib/api";
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect("/404");
+}
+
+let mangaList: any[] = [];
+let title = "Category";
+
+try {
+  if (slug === "latest") {
+    // Fetch latest manga
+    const res = await apiFetch<{ data: { mangaList: any[] } }>(
+      "/manga/ongoing"
+    );
+    mangaList = res.data?.mangaList || [];
+    title = "Latest Manga";
+  } else if (slug === "trending") {
+    // Fetch trending manga
+    const res = await apiFetch<{ data: { mangaList: any[] } }>(
+      "/manga/trending"
+    );
+    mangaList = res.data?.mangaList || [];
+    title = "Trending Manga";
+  } else {
+    // Treat as genre search
+    title = `${slug.charAt(0).toUpperCase() + slug.slice(1)} Manga`; // Capitalize
+    console.log(`[Manga Category] Fetching genre for: ${slug}`);
+
+    // Use the new GENRE endpoint
+    const res = await apiFetch<{ data: any }>(`/manga/genres/${slug}`);
+
+    // Handle flexible response structure
+    const data = res.data;
+    if (Array.isArray(data)) {
+      mangaList = data;
+    } else if (data && Array.isArray(data.mangaList)) {
+      mangaList = data.mangaList; // Common structure
+    } else if (data && Array.isArray(data.animeList)) {
+      // Fallback for some endpoints if they reuse struct names? Unlikely but safe.
+      mangaList = data.animeList;
+    } else {
+      mangaList = [];
+    }
+  }
+} catch (e) {
+  console.error("Failed to fetch manga category data", e);
+}
+
+// Ensure it's an array
+if (!Array.isArray(mangaList)) {
+  mangaList = [];
+}
+---
+
+<Layout title={`${title} - AnimePlay`}>
+  <div class="pt-20 md:pt-24 min-h-screen pb-12">
+    {/* Re-use Category Row for easy navigation, set type='manga' */}
+    <CategoryRow type="manga" client:load />
+
+    <div class="container mx-auto px-4 md:px-12 mt-6">
+      <h1 class="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+        <div class="w-1.5 h-8 bg-red-600 rounded-full"></div>
+        {title}
+      </h1>
+
+      <AnimeGrid items={mangaList} type="manga" />
+    </div>
+  </div>
+</Layout>

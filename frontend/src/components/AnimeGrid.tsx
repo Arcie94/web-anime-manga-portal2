@@ -2,13 +2,14 @@ import { FaPlay } from "react-icons/fa";
 
 interface Props {
     items: any[];
+    type?: 'anime' | 'manga'; // Default: 'anime'
 }
 
-export default function AnimeGrid({ items }: Props) {
+export default function AnimeGrid({ items, type = 'anime' }: Props) {
     if (!items || items.length === 0) {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-zinc-500">
-                <p className="text-lg">No anime found for this category.</p>
+                <p className="text-lg">No {type} found for this category.</p>
             </div>
         );
     }
@@ -18,7 +19,7 @@ export default function AnimeGrid({ items }: Props) {
             {items.map((item, idx) => (
                 <a 
                     key={idx} 
-                    href={`/anime/${item.slug || item.animeId}`}
+                    href={`/${type}/${item.slug || item.animeId}`}
                     className="relative group/card bg-zinc-900 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300"
                 >
                     <div className="aspect-[2/3] w-full relative overflow-hidden">
@@ -33,8 +34,8 @@ export default function AnimeGrid({ items }: Props) {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-60 group-hover/card:opacity-40 transition-opacity" />
 
                         {/* Badge Top Left */}
-                        <div className="absolute top-2 left-2 bg-zinc-900/80 backdrop-blur text-white text-[10px] font-bold px-2 py-0.5 rounded border border-white/10">
-                            TV
+                        <div className="absolute top-2 left-2 bg-zinc-900/80 backdrop-blur text-white text-[10px] font-bold px-2 py-0.5 rounded border border-white/10 uppercase">
+                            {type === 'anime' ? 'TV' : 'MANGA'}
                         </div>
 
                         {/* Badge Top Right (Episode) */}
@@ -57,7 +58,7 @@ export default function AnimeGrid({ items }: Props) {
                          <div className="flex items-center gap-2 text-[11px] text-zinc-500 mt-1.5">
                             <span>2024</span>
                             <span className="w-1 h-1 bg-zinc-600 rounded-full" />
-                            <span>Anime</span>
+                            <span className="capitalize">{type}</span>
                          </div>
                     </div>
                 </a>

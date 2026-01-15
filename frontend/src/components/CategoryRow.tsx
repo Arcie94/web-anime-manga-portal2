@@ -5,15 +5,19 @@ const categories = [
     "Drama", "Fantasy", "Sci-Fi", "Thriller", "Horror", "Mystery"
 ];
 
-export default function CategoryRow() {
+interface Props {
+    type?: 'anime' | 'manga';
+}
+
+export default function CategoryRow({ type = 'anime' }: Props) {
     const [activeCat, setActiveCat] = useState('All');
 
     useEffect(() => {
         // Simple logic to highlight active category based on URL
         const path = window.location.pathname;
-        if (path === '/') {
+        if (path === '/' || path === '/manga') {
             setActiveCat('All');
-        } else if (path.startsWith('/category/')) {
+        } else if (path.includes('/category/')) {
             const catSlug = path.split('/category/')[1];
             // Capitalize first letter to match array
             const formattedCat = catSlug.charAt(0).toUpperCase() + catSlug.slice(1);
@@ -22,8 +26,9 @@ export default function CategoryRow() {
     }, []);
 
     const getLink = (cat: string) => {
-        if (cat === "All") return "/";
-        return `/category/${cat.toLowerCase()}`;
+        const prefix = type === 'manga' ? '/manga' : '';
+        if (cat === "All") return type === 'manga' ? '/manga' : '/';
+        return `${prefix}/category/${cat.toLowerCase()}`;
     };
 
     return (
