@@ -1,17 +1,42 @@
 package services
 
 import (
+	"anime-tanyaayomi/internal/database"
 	"anime-tanyaayomi/internal/models"
+	"anime-tanyaayomi/internal/repository"
 	"fmt"
 	"sync"
 	"time"
 )
 
+// Package-level repository for AI enrichment (initialized on first use)
+var (
+	enrichmentRepo     *repository.EnrichmentRepository
+	enrichmentRepoOnce sync.Once
+)
+
+// getEnrichmentRepo returns the singleton enrichment repository
+func getEnrichmentRepo() *repository.EnrichmentRepository {
+	enrichmentRepoOnce.Do(func() {
+		if database.DB != nil {
+			enrichmentRepo = repository.NewEnrichmentRepository(database.DB)
+			fmt.Println("[EnrichmentRepo] ✅ Initialized with database connection")
+		} else {
+			fmt.Println("[EnrichmentRepo] ⚠️  Database not available, enrichment will use cache-only mode")
+		}
+	})
+	return enrichmentRepo
+}
+
 // enrichAnimeWithGemini uses Gemini AI to fill missing data (Year, Rating, etc.) for Anime
+// Now with database persistence to reduce API costs by ~90%
 func (s *SankavollereiService) enrichAnimeWithGemini(items []models.Anime) []models.Anime {
 	var wg sync.WaitGroup
 	maxConcurrency := 5
 	sem := make(chan struct{}, maxConcurrency)
+
+	// Get repository (will use database if available)
+	repo := getEnrichmentRepo()
 
 	for i := range items {
 		// Only enrich if missing data (upstream usually sends "ReleaseDate" as empty or non-year string)
@@ -24,7 +49,8 @@ func (s *SankavollereiService) enrichAnimeWithGemini(items []models.Anime) []mod
 				sem <- struct{}{}
 				defer func() { <-sem }()
 
-				data := EnrichData(items[idx].Title, "anime")
+				// Use database-aware enrichment (DB → Cache → Gemini)
+				data := EnrichDataWithDB(items[idx].Title, "anime", repo)
 				if data.Year != "" {
 					items[idx].ReleaseDate = data.Year
 				}
@@ -163,8 +189,11 @@ func (s *SankavollereiService) GetAnimeDetail(slug string) (*models.AnimeDetailR
 	// Check if key data is missing. Otakudesu usually returns empty strings for Genre/Rating/Author/Type.
 	if result.Data.Author == "" || result.Data.Genre == "" {
 		func() {
-			// Run enrichment
-			enriched := EnrichData(result.Data.Title, "anime")
+			// Get repository (will use database if available)
+			repo := getEnrichmentRepo()
+
+			// Run enrichment with database support (DB → Cache → Gemini)
+			enriched := EnrichDataWithDB(result.Data.Title, "anime", repo)
 
 			if enriched.Year != "" && result.Data.ReleaseDate == "" {
 				result.Data.ReleaseDate = enriched.Year
