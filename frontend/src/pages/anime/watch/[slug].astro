@@ -1,0 +1,256 @@
+---
+import Layout from "../../../layouts/Layout.astro";
+import WatchContainer from "../../../components/WatchContainer";
+import { parseSynopsis } from "../../../lib/utils";
+import { apiFetch } from "../../../lib/api";
+
+export const prerender = false;
+
+const { slug } = Astro.params; // This is the episodeId/slug
+
+let streamData: any = null;
+let animeDetail: any = null;
+let cleanEpisodeList: any[] = []; // Fix: Declare top-level
+let animeSlug: string = "";
+let error = "";
+
+if (slug) {
+  try {
+    // 1. Get Stream Data to find correct AnimeID
+    const streamRes = await apiFetch<{ data: any }>(`/anime/episode/${slug}`);
+    streamData = streamRes.data;
+
+    // Use AnimeID from stream data if available, otherwise try to guess from slug
+    animeSlug = streamData?.animeId || slug?.split("-episode-")[0];
+
+    // 2. Fetch Anime Details for context (Next/Prev)
+    if (animeSlug) {
+      try {
+        const detailRes = await apiFetch<{ data: any }>(`/anime/${animeSlug}`);
+        if (detailRes.data) {
+          animeDetail = detailRes.data;
+
+          // Populate clean list
+          cleanEpisodeList =
+            animeDetail?.episodeList?.map((ep: any) => ({
+              title: ep.title,
+              eps: ep.eps,
+              slug: ep.slug,
+              episodeId: ep.episodeId,
+            })) || [];
+
+          console.log(
+            "[DEBUG] WatchPage: Anime Detail Found:",
+            animeDetail.title
+          );
+          console.log(
+            "[DEBUG] WatchPage: Episode List Length:",
+            animeDetail.episodeList?.length
+          );
+        } else {
+          console.log("[DEBUG] WatchPage: Detail Fetch Failed or No Data");
+        }
+      } catch (e) {
+        console.error("[DEBUG] WatchPage: Error fetching detail:", e);
+      }
+    }
+  } catch (e: any) {
+    console.error("Stream fetch error:", e);
+    error = e.message || "Gagal memuat video.";
+  }
+}
+
+if (!streamData && !error) {
+  return Astro.redirect("/404");
+}
+
+// Prepare Props for WatchContainer
+const sources = {
+  default: streamData?.defaultStreamingUrl || "",
+  backup: streamData?.stream_link || "",
+  direct: streamData?.url || "",
+};
+
+// Calculate Navigation
+let nav = { prevSlug: "", nextSlug: "" };
+let episodeNumber = "??";
+let episodeTitle = "";
+
+if (animeDetail && animeDetail.episodeList) {
+  // Reverse logic if needed? Our earlier fix reversed the list to be Descending (Newest First).
+  // Let's check typical API order. Usually API returns Newest First.
+  // Meaning Index 0 = Latest Episode.
+  // Next Episode (Numerically higher) is actually index - 1 (if available).
+  // Prev Episode (Numerically lower) is actually index + 1.
+  // Wait, "Next" usually means "Watch the next one in the story".
+  // If user is on Ep 1, Next is Ep 2.
+  // If list is [Ep 10, ... Ep 2, Ep 1], then Ep 1 is at end.
+  // Index of Ep 1 = length - 1.
+  // Index of Ep 2 = length - 2.
+  // So "Next" episode is at `currentIndex - 1`. "Prev" is `currentIndex + 1`.
+
+  // Debug: Check slug matching
+  console.log(`[DEBUG] Current Slug: ${slug}`);
+  // Extract number from current slug for tighter matching
+  const currentEpNum = slug?.match(/episode-(\d+)/)?.[1];
+  console.log(`[DEBUG] Extracted Ep Num: ${currentEpNum}`);
+
+  // Find current index
+  const currentIndex = animeDetail.episodeList.findIndex((ep: any) => {
+    // 1. Exact match
+    if (ep.sourceId === slug || ep.slug === slug || ep.episodeId === slug)
+      return true;
+    // 2. Loose match by episode number in slug
+    if (currentEpNum && ep.slug?.includes(`episode-${currentEpNum}`))
+      return true;
+    return false;
+  });
+
+  console.log(
+    `[DEBUG] Found Index: ${currentIndex} / Total: ${animeDetail.episodeList.length}`
+  );
+
+  if (currentIndex !== -1) {
+    // List Logic (Preferred)
+    // Assuming Descending Order (Newest First in Array):
+    // List: [Ep 100, Ep 99, ... Ep 1]
+    // Current: Ep 99 (Index 1)
+    // Next Story Episode: Ep 100 (Index 0) -> `currentIndex - 1`
+    // Prev Story Episode: Ep 98 (Index 2) -> `currentIndex + 1`
+
+    if (currentIndex > 0) {
+      nav.nextSlug =
+        animeDetail.episodeList[currentIndex - 1].slug ||
+        animeDetail.episodeList[currentIndex - 1].episodeId;
+    }
+
+    if (currentIndex < animeDetail.episodeList.length - 1) {
+      nav.prevSlug =
+        animeDetail.episodeList[currentIndex + 1].slug ||
+        animeDetail.episodeList[currentIndex + 1].episodeId;
+    }
+
+    // Get readable number
+    // Fix: Do not rely on (length - currentIndex) because list might be partial or contain gaps.
+    // Try to get explicit 'eps' from object, or use the one extracted from slug.
+    const epObj = animeDetail.episodeList[currentIndex];
+    if (epObj.eps) {
+      episodeNumber = epObj.eps.toString();
+    } else if (currentEpNum) {
+      episodeNumber = currentEpNum;
+    } else {
+      // Fallback to index-based only if absolutely nothing else
+      episodeNumber = (
+        animeDetail.episodeList.length - currentIndex
+      ).toString();
+    }
+
+    episodeTitle = epObj.title || `Episode ${episodeNumber}`;
+  }
+}
+
+// FALLBACK Logic: If Nav is still empty (API fail or lookup fail), try to guess.
+if (!nav.nextSlug && !nav.prevSlug && slug) {
+  const match = slug.match(/(.*?)episode-(\d+)(.*)/);
+  if (match) {
+    const prefix = match[1];
+    const currentNum = parseInt(match[2]);
+    const suffix = match[3];
+
+    console.log(`[DEBUG] Fallback Guessing. Num: ${currentNum}`);
+
+    // Next Story Episode = Num + 1
+    const nextNum = currentNum + 1;
+    // Prev Story Episode = Num - 1
+    const prevNum = currentNum - 1;
+
+    if (nextNum > 0) {
+      // Assuming no negative eps
+      nav.nextSlug = `${prefix}episode-${nextNum}${suffix}`;
+    }
+    if (prevNum > 0) {
+      nav.prevSlug = `${prefix}episode-${prevNum}${suffix}`;
+    }
+
+    // Fix display num if still "??"
+    if (episodeNumber === "??") episodeNumber = currentNum.toString();
+  }
+}
+
+// Helper to format slug to title (e.g. "one-piece" -> "One Piece")
+function formatSlugToTitle(slug: string) {
+  if (!slug) return "Anime";
+  return slug
+    .split("-")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+const animeSlugCandidate = slug?.split("-episode-")[0] || "";
+const fallbackTitle = formatSlugToTitle(animeSlugCandidate);
+
+const info = {
+  animeTitle: animeDetail?.title || fallbackTitle,
+  episodeTitle: inputTitle(episodeTitle, slug as string),
+  episodeNumber: episodeNumber,
+};
+
+function inputTitle(t: string, s: string) {
+  if (t) return t;
+  // Fallback: extract number from slug
+  const match = s.match(/episode-(\d+)/);
+  return match ? `Episode ${match[1]}` : (slug as string);
+}
+---
+
+<Layout
+  title={`Nonton ${info.animeTitle} Episode ${info.episodeNumber} - TanyaAyomi`}
+  hideHeader={true}
+>
+  {/* Back Button */}
+  <div class="fixed top-4 left-4 z-50">
+    <button
+      onclick="history.length > 1 ? history.back() : window.location.href = '/'"
+      class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white border border-white/10 transition-all hover:scale-110 active:scale-95 backdrop-blur-sm shadow-xl"
+      aria-label="Kembali"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="2.5"
+        stroke="currentColor"
+        class="w-5 h-5 md:w-6 md:h-6"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"></path>
+      </svg>
+    </button>
+  </div>
+
+  <div class="max-w-6xl mx-auto px-4 pt-24 pb-12">
+    {
+      error ? (
+        <div class="w-full aspect-video bg-zinc-900 rounded-xl flex items-center justify-center text-red-500 border border-red-500/20">
+          <p>{error}</p>
+        </div>
+      ) : (
+        <>
+          <WatchContainer
+            client:only="react"
+            sources={sources}
+            info={{
+              animeTitle: animeDetail?.title || "Unknown Anime",
+              episodeTitle: `Episode ${episodeNumber}`,
+              episodeNumber: episodeNumber,
+            }}
+            nav={nav}
+            episodeList={cleanEpisodeList}
+          />
+        </>
+      )
+    }
+  </div>
+</Layout>

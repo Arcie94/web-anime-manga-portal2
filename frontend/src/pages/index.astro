@@ -1,0 +1,57 @@
+---
+import Layout from "../layouts/Layout.astro";
+import HeroCarousel from "../components/HeroCarousel";
+import ContentRow from "../components/ContentRow";
+import CategoryRow from "../components/CategoryRow";
+import { apiFetch } from "../lib/api";
+import { FEATURED_ANIME } from "../data/featuredAnime";
+
+export const prerender = false;
+
+// Fetch homepage data from Sankavollerei API
+let ongoingAnime: any[] = [];
+let completedAnime: any[] = [];
+
+try {
+  const homeData = await apiFetch<{
+    data: { ongoing: any[]; completed: any[] };
+  }>("/anime/home");
+
+  if (homeData?.data) {
+    ongoingAnime = homeData.data.ongoing || [];
+    completedAnime = homeData.data.completed || [];
+  }
+} catch (error) {
+  console.error("Failed to fetch home data:", error);
+}
+---
+
+<Layout title="TanyaAyomi - Watch TV Shows Online, Watch Movies Online">
+  {/* Hero Carousel */}
+  <div class="relative z-0">
+    <HeroCarousel featured={FEATURED_ANIME} client:only="react" />
+  </div>
+
+  {/* Sub-Header Categories */}
+  <CategoryRow client:visible />
+
+  {/* Content Rows - Using server-fetched data passed as props */}
+  <ContentRow
+    title="Trending Anime"
+    endpoint="/anime/complete"
+    dataKey="animeList"
+    type="anime"
+    client:load
+  />
+
+  {
+    ongoingAnime.length > 0 && (
+      <ContentRow
+        title="Ongoing Anime"
+        items={ongoingAnime}
+        type="anime"
+        client:load
+      />
+    )
+  }
+</Layout>

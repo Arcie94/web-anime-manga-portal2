@@ -1,0 +1,190 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import { apiFetch } from "../../lib/api";
+import { parseSynopsis } from "../../lib/utils";
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+
+let anime: any = null;
+let error = "";
+
+if (slug) {
+  try {
+    const res = await apiFetch<{ data: any }>(`/anime/${slug}`);
+    anime = res.data;
+  } catch (e) {
+    error = "Gagal memuat detail anime.";
+  }
+}
+
+if (!anime) {
+  return Astro.redirect("/404");
+}
+
+// Get first episode for "Watch Now" button
+const firstEpisode = anime.episodeList?.[anime.episodeList.length - 1];
+---
+
+<Layout title={`${anime.title} - TanyaAyomi`} hideHeader={true}>
+  <!-- Back Button -->
+  <div class="fixed top-4 left-4 z-50">
+    <button
+      onclick="history.length > 1 ? history.back() : window.location.href = '/'"
+      class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white border border-white/10 transition-all hover:scale-110 active:scale-95 backdrop-blur-sm"
+      aria-label="Kembali"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="2.5"
+        stroke="currentColor"
+        class="w-5 h-5 md:w-6 md:h-6"
+      >
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"></path>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Fixed Ambient Backdrop (Full Screen) -->
+  <div
+    class="fixed inset-0 w-full h-full z-0 pointer-events-none overflow-hidden"
+  >
+    <div class="absolute inset-0 bg-zinc-950/80 z-10"></div>
+    <img
+      src={anime.poster || anime.cover || anime.image}
+      alt="Ambient Background"
+      class="w-full h-full object-cover blur-[50px] scale-125 opacity-50"
+    />
+  </div>
+
+  <!-- Hero Section - DramaPlay Style -->
+  <div class="relative z-10 pb-4 md:pb-8 pt-20 md:pt-28">
+    <div class="container mx-auto px-4 max-w-6xl">
+      <div class="flex gap-4 md:gap-8 items-start">
+        <!-- Poster - Mobile Responsive -->
+        <div class="w-32 sm:w-40 md:w-52 lg:w-64 flex-shrink-0">
+          <img
+            src={anime.poster || anime.cover || anime.image}
+            alt={anime.title}
+            class="w-full rounded-lg shadow-2xl ring-1 ring-white/10 block"
+            loading="eager"
+          />
+        </div>
+
+        <!-- Info -->
+        <div class="flex-1 space-y-3 md:space-y-4 pt-1 md:pt-4">
+          <h1
+            class="text-xl md:text-4xl lg:text-5xl font-black text-white leading-tight drop-shadow-lg"
+          >
+            {anime.title}
+          </h1>
+
+          <!-- Metadata badges -->
+          <div
+            class="flex flex-wrap items-center gap-2 md:gap-3 text-xs md:text-base"
+          >
+            <span
+              class="px-2 py-0.5 rounded bg-white/10 text-white font-medium border border-white/10"
+              >Anime</span
+            >
+            <span class="text-zinc-400">•</span>
+            <span class="text-zinc-300">Likes</span>
+            <span class="text-zinc-400">•</span>
+            <span class="text-zinc-300"
+              >{anime.totalEpisodes || anime.episodeList?.length || "?"} Eps</span
+            >
+          </div>
+
+          <!-- Action Buttons - Responsive flex -->
+          <div class="flex gap-3 pt-2">
+            {
+              firstEpisode && (
+                <a
+                  href={`/anime/watch/${firstEpisode.episodeId || firstEpisode.slug}`}
+                  class="flex-1 md:flex-none flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2.5 md:px-8 md:py-3.5 rounded-full font-bold text-sm md:text-lg transition-all shadow-lg hover:shadow-red-600/20 hover:scale-105"
+                >
+                  <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M6.3 2.841A1.5 1.5 0 004 4.11V15.89a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+                  </svg>
+                  Watch Now
+                </a>
+              )
+            }
+            <button
+              class="flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 md:px-6 md:py-3.5 rounded-full font-bold text-sm md:text-lg transition-all backdrop-blur-sm border border-white/10"
+            >
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+              </svg>
+              My List
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Synopsis - Static -->
+  {
+    anime.synopsis && (
+      <div class="relative z-10 container mx-auto px-4 pb-8 max-w-6xl">
+        <h2 class="text-lg md:text-xl font-bold text-white mb-2 opacity-90">
+          Synopsis
+        </h2>
+        <p class="text-zinc-300 text-sm md:text-base leading-relaxed whitespace-pre-line max-w-4xl">
+          {parseSynopsis(anime.synopsis)}
+        </p>
+      </div>
+    )
+  }
+
+  <!-- Episodes Grid -->
+  <div class="relative z-10 container mx-auto px-4 pb-12 max-w-6xl">
+    <div
+      class="flex items-center justify-between mb-4 md:mb-6 border-b border-white/10 pb-4"
+    >
+      <h2 class="text-xl md:text-2xl font-bold text-white">Episodes</h2>
+      <span class="text-sm text-zinc-400">
+        {anime.episodeList?.length || 0} Available
+      </span>
+    </div>
+
+    <div class="grid grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2 md:gap-3">
+      {
+        anime.episodeList?.map((ep: any, idx: number) => {
+          // Fix: Use explicit 'eps' or extract from slug/episodeId. Fallback to index logic ONLY if needed.
+          const displayNum = ep.eps
+            ? ep.eps
+            : (ep.slug || ep.episodeId)?.match(/episode-(\d+)/)?.[1] ||
+              anime.episodeList.length - idx;
+
+          return (
+            <a
+              href={`/anime/watch/${ep.episodeId || ep.slug}`}
+              class="aspect-square bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/20 rounded-md md:rounded-lg flex items-center justify-center text-zinc-300 hover:text-white font-bold text-sm md:text-lg transition-all group relative overflow-hidden"
+            >
+              <span class="group-hover:scale-110 transition-transform relative z-10">
+                {displayNum}
+              </span>
+            </a>
+          );
+        })
+      }
+    </div>
+  </div>
+</Layout>

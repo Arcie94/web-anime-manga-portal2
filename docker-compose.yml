@@ -1,0 +1,72 @@
+services:
+  backend:
+    build: ./backend
+    container_name: anime-backend
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgres://postgres:postgres@postgres:5432/animedb?sslmode=disable
+      - PORT=3000
+    ports:
+      - "3001:3000"
+    depends_on:
+      - postgres
+
+  redis:
+    image: redis:alpine
+    container_name: anime-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  frontend:
+    build: ./frontend
+    container_name: anime-frontend
+    restart: unless-stopped
+    environment:
+      - HOST=0.0.0.0
+      - PORT=4321
+      - API_URL=http://backend:3000/api
+    depends_on:
+      - backend
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: anime-db
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=animedb
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  nginx:
+    image: nginx:alpine
+    container_name: anime-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - frontend
+      - backend
+
+  warp:
+    image: monius/docker-warp-socks:latest
+    container_name: anime-warp
+    restart: unless-stopped
+    ports:
+      - "9091:9091"
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+    volumes:
+      - ./warp_data:/var/lib/cloudflare-warp
+
+volumes:
+  postgres_data:
+  warp_data:

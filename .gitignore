@@ -1,0 +1,12 @@
+node_modules
+dist
+.env
+.DS_Store
+*.log
+debug_response.json
+postgres_data
+redis_data
+warp_data
+tmp
+.vscode
+.idea

@@ -1,0 +1,7 @@
+node_modules
+# dist
+.astro
+.git
+.vscode
+package-lock.json.bak
+Dockerfile

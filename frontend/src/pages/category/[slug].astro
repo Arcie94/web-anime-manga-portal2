@@ -1,0 +1,75 @@
+---
+import Layout from "../../layouts/Layout.astro";
+import CategoryRow from "../../components/CategoryRow";
+import AnimeGrid from "../../components/AnimeGrid";
+import { apiFetch } from "../../lib/api";
+
+export const prerender = false;
+
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect("/404");
+}
+
+let animeList: any[] = [];
+let title = "Category";
+
+try {
+  if (slug === "latest") {
+    // Fetch latest anime (using home endpoint as proxy if dedicated endpoint doesn't exist)
+    const res = await apiFetch<{ data: { ongoing: any[] } }>("/anime/home");
+    animeList = res.data?.ongoing || [];
+    title = "Latest Anime";
+  } else if (slug === "trending") {
+    // Fetch trending (using completed or specific search logic)
+    const res = await apiFetch<{ data: { completed: any[] } }>("/anime/home");
+    animeList = res.data?.completed || []; // Placeholder logic
+    title = "Trending Anime";
+  } else {
+    // Treat as genre search
+    title = `${slug.charAt(0).toUpperCase() + slug.slice(1)} Anime`;
+    console.log(`[Category] Fetching genre for: ${slug}`);
+
+    // Use the new GENRE endpoint
+    const res = await apiFetch<{ data: any }>(`/anime/genres/${slug}`);
+    console.log(
+      `[Category] Response for ${slug}:`,
+      JSON.stringify(res, null, 2)
+    );
+
+    // Handle flexible response structure
+    const data = res.data;
+    if (Array.isArray(data)) {
+      animeList = data;
+    } else if (data && Array.isArray(data.animeList)) {
+      animeList = data.animeList;
+    } else {
+      animeList = [];
+    }
+  }
+} catch (e) {
+  console.error("Failed to fetch category data", e);
+}
+
+// Support both structure for search response (often array directly or wrap in data)
+if (Array.isArray(animeList) === false && (animeList as any).animeList) {
+  animeList = (animeList as any).animeList;
+}
+---
+
+<Layout title={`${title} - TanyaAyomi`}>
+  <div class="pt-20 md:pt-24 min-h-screen pb-12">
+    <!-- Re-use Category Row for easy navigation -->
+    <CategoryRow client:load />
+
+    <div class="container mx-auto px-4 md:px-12 mt-6">
+      <h1 class="text-3xl font-bold text-white mb-6 flex items-center gap-3">
+        <div class="w-1.5 h-8 bg-red-600 rounded-full"></div>
+        {title}
+      </h1>
+
+      <AnimeGrid items={animeList} />
+    </div>
+  </div>
+</Layout>
