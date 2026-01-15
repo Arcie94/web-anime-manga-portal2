@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FaPlay, FaInfoCircle, FaStar } from "react-icons/fa";
+import { FaPlay, FaInfoCircle, FaStar, FaBook } from "react-icons/fa";
 
 interface HeroProps {
     item: {
@@ -11,6 +11,7 @@ interface HeroProps {
         type: 'anime' | 'manga';
         desc?: string;
         rating?: string;
+        year?: string;
     };
 }
 
@@ -57,11 +58,13 @@ export default function HeroBillboard({ item }: HeroProps) {
                     <div className="flex-1 space-y-6 max-w-2xl text-center md:text-left mx-auto md:mx-0 pt-4 md:pt-0">
                         <div className="space-y-2">
                              <div className="flex items-center justify-center md:justify-start gap-3 text-xs md:text-sm font-semibold text-yellow-500 mb-2">
-                                <span className="flex items-center gap-1 bg-yellow-500/10 px-2 py-1 rounded">
-                                    <FaStar /> {item.rating || "9.8"}
-                                </span>
-                                <span className="text-zinc-400">2024</span>
-                                <span className="bg-zinc-800 text-zinc-300 px-2 py-1 rounded">13+</span>
+                                {(item.rating) && (
+                                    <span className="flex items-center gap-1 bg-yellow-500/10 px-2 py-1 rounded">
+                                        <FaStar /> {item.rating}
+                                    </span>
+                                )}
+                                {item.year && <span className="text-zinc-400">{item.year}</span>}
+                                {/* <span className="bg-zinc-800 text-zinc-300 px-2 py-1 rounded">13+</span> */}
                                 <span className="text-red-500 font-bold uppercase">{item.type}</span>
                             </div>
 
@@ -81,8 +84,8 @@ export default function HeroBillboard({ item }: HeroProps) {
                                 href={`/${item.type}/${item.slug}`} 
                                 className="w-full sm:w-auto flex items-center justify-center gap-2 bg-red-600 text-white px-8 py-3.5 rounded-full font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 active:scale-95"
                             >
-                                <FaPlay className="text-sm" />
-                                Watch Now
+                                {item.type === 'manga' ? <FaBook className="text-sm" /> : <FaPlay className="text-sm" />}
+                                {item.type === 'manga' ? 'Read Now' : 'Watch Now'}
                             </a>
                             <a 
                                 href={`/${item.type}/${item.slug}`} 

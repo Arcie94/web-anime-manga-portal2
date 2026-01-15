@@ -135,18 +135,19 @@ type LatestResponse struct {
 // ============ MANGA MODELS ============
 // Manga uses similar structure as Anime, but with some differences
 type Manga struct {
-	Title     string      `json:"title"`
-	Link      string      `json:"link"` // For slug extraction: "/manga/slug-name/"
-	Slug      string      `json:"slug"` // Extracted from link
-	Cover     string      `json:"cover"`
-	Image     string      `json:"image"` // Sankavollerei uses 'image' field
-	Poster    string      `json:"poster"`
-	Thumbnail string      `json:"thumbnail"`
-	Synopsis  interface{} `json:"synopsis"`
-	Genre     string      `json:"genre"`
-	Status    string      `json:"status"`
-	Chapter   string      `json:"chapter"` // Latest chapter from list
-	TimeAgo   string      `json:"time_ago"`
+	Title       string      `json:"title"`
+	Link        string      `json:"link"` // For slug extraction: "/manga/slug-name/"
+	Slug        string      `json:"slug"` // Extracted from link
+	Cover       string      `json:"cover"`
+	Image       string      `json:"image"` // Sankavollerei uses 'image' field
+	Poster      string      `json:"poster"`
+	Thumbnail   string      `json:"thumbnail"`
+	Synopsis    interface{} `json:"synopsis"`
+	Genre       string      `json:"genre"`
+	Status      string      `json:"status"`
+	Chapter     string      `json:"chapter"` // Latest chapter from list
+	TimeAgo     string      `json:"time_ago"`
+	ReleaseDate string      `json:"releaseDate"`
 }
 
 type Chapter struct {
@@ -195,4 +196,6 @@ type ChapterResponse struct {
 	ChapterID string   `json:"chapterId"`
 	MangaID   string   `json:"mangaId"`
 	Images    []string `json:"images"` // Array of image URLs for the chapter
+	NextSlug  string   `json:"nextSlug,omitempty"`
+	PrevSlug  string   `json:"prevSlug,omitempty"`
 }

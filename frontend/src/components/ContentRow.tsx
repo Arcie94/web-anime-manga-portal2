@@ -134,8 +134,12 @@ export default function ContentRow({ title, items: initialItems = [], endpoint, 
                                     {item.title}
                                  </h3>
                                  <div className="flex items-center gap-2 text-[11px] text-zinc-500 mt-0.5">
-                                    <span>2024</span>
-                                    <span className="w-1 h-1 bg-zinc-600 rounded-full" />
+                                    {(item.releaseDate || item.time_ago || item.status) && (
+                                        <>
+                                            <span>{item.releaseDate || item.time_ago || item.status}</span>
+                                            <span className="w-1 h-1 bg-zinc-600 rounded-full" />
+                                        </>
+                                    )}
                                     <span>{type === 'anime' ? 'Anime' : 'Manga'}</span>
                                  </div>
                             </div>

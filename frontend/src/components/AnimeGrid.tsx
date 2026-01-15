@@ -56,8 +56,13 @@ export default function AnimeGrid({ items, type = 'anime' }: Props) {
                             {item.title}
                          </h3>
                          <div className="flex items-center gap-2 text-[11px] text-zinc-500 mt-1.5">
-                            <span>2024</span>
-                            <span className="w-1 h-1 bg-zinc-600 rounded-full" />
+                            {/* Dynamic Year/Status */}
+                            {(item.releaseDate || item.time_ago || item.status) && (
+                                <>
+                                    <span>{item.releaseDate || item.time_ago || item.status}</span>
+                                    <span className="w-1 h-1 bg-zinc-600 rounded-full" />
+                                </>
+                            )}
                             <span className="capitalize">{type}</span>
                          </div>
                     </div>

@@ -1,25 +1,40 @@
 ---
 import Layout from "../../../layouts/Layout.astro";
 import { apiFetch } from "../../../lib/api";
+import MangaReader from "../../../components/MangaReader";
 
 export const prerender = false;
 
 const { slug } = Astro.params;
 
 let images: string[] = [];
+let title = "";
+let nextSlug = "";
 let error = "";
 
 if (slug) {
   try {
     const res = await apiFetch<any>(`/manga/chapter/${slug}`);
     images = res.images || [];
+    nextSlug = res.nextSlug || ""; // Get Next Slug from API
+
+    // Use API title or format slug as fallback
+    if (res.title) {
+      title = res.title;
+    } else if (slug) {
+      // Fallback: one-piece-chapter-1170 -> One Piece Chapter 1170
+      title = slug
+        .split("-")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(" ");
+    }
   } catch (e) {
     error = "Gagal memuat gambar chapter.";
   }
 }
 ---
 
-<Layout title="Baca Manga - AnimePlay">
+<Layout title="Baca Manga - AnimePlay" allowZoom={true}>
   <div class="max-w-4xl mx-auto">
     <div
       class="flex items-center justify-between mb-6 sticky top-20 z-40 bg-gray-900/90 backdrop-blur p-4 rounded-xl border border-gray-800"
@@ -43,7 +58,9 @@ if (slug) {
             d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"></path>
         </svg>
       </button>
-      <h1 class="text-lg font-bold text-gray-200">Chapter Reader</h1>
+      <h1 id="chapter-header-title" class="text-lg font-bold text-gray-200">
+        {title || "Chapter Reader"}
+      </h1>
       <div></div>
       {/* Spacer */}
     </div>
@@ -56,22 +73,14 @@ if (slug) {
       )
     }
 
-    <div class="space-y-4 text-center min-h-screen">
-      {
-        images.map((img) => (
-          <img
-            src={img}
-            class="max-w-full mx-auto shadow-lg rounded-lg"
-            loading="lazy"
-          />
-        ))
-      }
-
-      {
-        images.length === 0 && !error && (
-          <p class="py-20 text-gray-500">Memuat gambar...</p>
-        )
-      }
+    <div class="min-h-screen">
+      <MangaReader
+        client:load
+        initialSlug={slug || ""}
+        initialTitle={title}
+        initialImages={images}
+        initialNextSlug={nextSlug}
+      />
     </div>
 
     <div class="text-center py-10">

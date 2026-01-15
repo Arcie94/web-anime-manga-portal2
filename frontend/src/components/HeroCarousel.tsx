@@ -125,6 +125,7 @@ export default function HeroCarousel({
                 type: anime.type,
                 desc: anime.description,
                 rating: anime.rating,
+                year: anime.year,
               }} 
             />
           </div>

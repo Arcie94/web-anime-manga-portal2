@@ -93,6 +93,37 @@ func (s *SankavollereiService) filterBlacklistedManga(items []models.Manga) []mo
 	return filtered
 }
 
+// enrichMangaWithGemini uses Gemini AI to fill missing data (Year, Rating, etc.)
+func (s *SankavollereiService) enrichMangaWithGemini(items []models.Manga) []models.Manga {
+	var wg sync.WaitGroup
+	// Limit Concurrency for AI to 5 to be safe with rate limits
+	maxConcurrency := 5
+	sem := make(chan struct{}, maxConcurrency)
+
+	for i := range items {
+		// Only enrich if missing data
+		if items[i].ReleaseDate == "" {
+			wg.Add(1)
+			go func(idx int) {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+
+				data := EnrichData(items[idx].Title, "manga")
+				if data.Year != "" {
+					items[idx].ReleaseDate = data.Year
+				}
+				if items[idx].Status == "" && data.Status != "" {
+					items[idx].Status = data.Status
+				}
+				// We can also add rating if we add the field to Manga struct, but let's stick to ReleaseDate for now
+			}(i)
+		}
+	}
+	wg.Wait()
+	return items
+}
+
 // GetMangaHome fetches trending and popular manga from homepage
 func (s *SankavollereiService) GetMangaHome() (*models.MangaListResponse, error) {
 	var result struct {
@@ -110,6 +141,9 @@ func (s *SankavollereiService) GetMangaHome() (*models.MangaListResponse, error)
 
 	// Enrich images in parallel
 	result.Trending = s.enrichMangaListURLs(result.Trending)
+
+	// AI Enrichment (Gemini)
+	result.Trending = s.enrichMangaWithGemini(result.Trending)
 
 	return &models.MangaListResponse{
 		Data: struct {
@@ -278,6 +312,88 @@ func (s *SankavollereiService) GetChapterImages(chapterId string) (*models.Chapt
 		return nil, fmt.Errorf("failed to get chapter images: %w", err)
 	}
 
+	// Logic to find Next/Prev Slug
+	// 1. Extract Manga Slug from Chapter Slug directly
+	re := regexp.MustCompile(`^(.*)-chapter-.*$`)
+	matches := re.FindStringSubmatch(chapterId)
+	if len(matches) > 1 {
+		mangaSlug := matches[1]
+
+		if result.MangaID == "" {
+			result.MangaID = mangaSlug
+		}
+		if result.ChapterID == "" {
+			result.ChapterID = chapterId
+		}
+
+		// 2. Fetch Manga Details
+		detail, err := s.GetMangaDetail(mangaSlug)
+		if err != nil {
+			// Fallback 1: Try common prefix/suffix pattern "komik-{slug}-indo"
+			// This avoids Search latency/timeout for common cases like One Piece
+			heuristicSlug := fmt.Sprintf("komik-%s-indo", mangaSlug)
+			detail, err = s.GetMangaDetail(heuristicSlug)
+			if err != nil {
+				// Fallback 2: Search for the slug to find the correct canonical slug
+				// e.g. "one-piece" -> "One Piece" -> Search -> "komik-one-piece-indo"
+				searchQuery := strings.ReplaceAll(mangaSlug, "-", " ")
+				searchRes, searchErr := s.SearchManga(searchQuery)
+				if searchErr == nil && searchRes != nil && len(searchRes.Data.MangaList) > 0 {
+					var canonicalSlug string
+
+					// Smart Selection: Find exact title match first
+					for _, m := range searchRes.Data.MangaList {
+						if strings.EqualFold(m.Title, searchQuery) {
+							canonicalSlug = m.Slug
+							break
+						}
+					}
+
+					// If no exact match, fallback to first result
+					if canonicalSlug == "" {
+						canonicalSlug = searchRes.Data.MangaList[0].Slug
+					}
+
+					// Retry Detail Fetch
+					detail, err = s.GetMangaDetail(canonicalSlug)
+				}
+			}
+		}
+
+		if detail != nil {
+			reNum := regexp.MustCompile(`-chapter-([\d\.]+)`)
+			numMatches := reNum.FindStringSubmatch(chapterId)
+			var targetNum string
+			if len(numMatches) > 1 {
+				targetNum = numMatches[1]
+			}
+
+			for i, ch := range detail.Chapters {
+				iterSlug := strings.Trim(ch.Slug, "/")
+				cleanID := strings.Trim(chapterId, "/")
+
+				isMatch := false
+				if iterSlug == cleanID {
+					isMatch = true
+				} else if targetNum != "" {
+					if strings.HasSuffix(iterSlug, "-"+targetNum) || strings.Contains(iterSlug, "-chapter-"+targetNum) {
+						isMatch = true
+					}
+				}
+
+				if isMatch {
+					if i > 0 {
+						result.NextSlug = detail.Chapters[i-1].Slug
+					}
+					if i < len(detail.Chapters)-1 {
+						result.PrevSlug = detail.Chapters[i+1].Slug
+					}
+					break
+				}
+			}
+		}
+	}
+
 	return &result, nil
 }
 
@@ -298,6 +414,9 @@ func (s *SankavollereiService) GetTrendingManga() (*models.MangaListResponse, er
 
 	// Enrich images in parallel
 	result.Trending = s.enrichMangaListURLs(result.Trending)
+
+	// AI Enrichment
+	result.Trending = s.enrichMangaWithGemini(result.Trending)
 
 	return &models.MangaListResponse{
 		Data: struct {

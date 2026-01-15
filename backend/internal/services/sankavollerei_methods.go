@@ -3,8 +3,43 @@ package services
 import (
 	"anime-tanyaayomi/internal/models"
 	"fmt"
+	"sync"
 	"time"
 )
+
+// enrichAnimeWithGemini uses Gemini AI to fill missing data (Year, Rating, etc.) for Anime
+func (s *SankavollereiService) enrichAnimeWithGemini(items []models.Anime) []models.Anime {
+	var wg sync.WaitGroup
+	maxConcurrency := 5
+	sem := make(chan struct{}, maxConcurrency)
+
+	for i := range items {
+		// Only enrich if missing data (upstream usually sends "ReleaseDate" as empty or non-year string)
+		// Usually upstream has specific format, but if it's missing or we want year:
+		// We'll trust Gemini if ReleaseDate is missing.
+		if items[i].ReleaseDate == "" {
+			wg.Add(1)
+			go func(idx int) {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+
+				data := EnrichData(items[idx].Title, "anime")
+				if data.Year != "" {
+					items[idx].ReleaseDate = data.Year
+				}
+				if items[idx].Status == "" && data.Status != "" {
+					items[idx].Status = data.Status
+				}
+				if items[idx].Rating == "" && data.Rating != "" {
+					items[idx].Rating = data.Rating
+				}
+			}(i)
+		}
+	}
+	wg.Wait()
+	return items
+}
 
 // GetHome fetches ongoing and completed anime from homepage
 func (s *SankavollereiService) GetHome() (*models.HomeResponse, error) {
@@ -15,6 +50,10 @@ func (s *SankavollereiService) GetHome() (*models.HomeResponse, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get home data: %w", err)
 	}
+
+	// AI Enrichment
+	result.Data.Ongoing.AnimeList = s.enrichAnimeWithGemini(result.Data.Ongoing.AnimeList)
+	result.Data.Completed.AnimeList = s.enrichAnimeWithGemini(result.Data.Completed.AnimeList)
 
 	return &result, nil
 }
@@ -30,6 +69,9 @@ func (s *SankavollereiService) Search(keyword string) (*models.SearchResponse, e
 		return nil, fmt.Errorf("failed to search anime: %w", err)
 	}
 
+	// Optional: Enrich search results? Might be slow. Let's skip for speed for now or do it?
+	// User didn't complain about search. Let's stick to lists.
+
 	return &result, nil
 }
 
@@ -43,6 +85,9 @@ func (s *SankavollereiService) GetGenre(slug string) (*models.SearchResponse, er
 	if err != nil {
 		return nil, fmt.Errorf("failed to get genre anime: %w", err)
 	}
+
+	// AI Enrichment
+	result.Data.AnimeList = s.enrichAnimeWithGemini(result.Data.AnimeList)
 
 	return &result, nil
 }
@@ -62,6 +107,9 @@ func (s *SankavollereiService) GetOngoingAnime(page int) (*models.SearchResponse
 		return nil, fmt.Errorf("failed to get ongoing anime: %w", err)
 	}
 
+	// AI Enrichment
+	result.Data.AnimeList = s.enrichAnimeWithGemini(result.Data.AnimeList)
+
 	return &result, nil
 }
 
@@ -79,6 +127,9 @@ func (s *SankavollereiService) GetCompleteAnime(page int) (*models.SearchRespons
 	if err != nil {
 		return nil, fmt.Errorf("failed to get complete anime: %w", err)
 	}
+
+	// AI Enrichment
+	result.Data.AnimeList = s.enrichAnimeWithGemini(result.Data.AnimeList)
 
 	return &result, nil
 }
