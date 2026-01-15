@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type TouchEvent } from 'react';
 import { FaChevronLeft, FaChevronRight } from 'react-icons/fa';
 import HeroBillboard from './HeroBillboard';
 import type { FeaturedAnime } from '../data/featuredAnime';
@@ -56,11 +56,53 @@ export default function HeroCarousel({
 
   const currentAnime = featured[currentIndex];
 
+  // Touch handlers
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: TouchEvent) => {
+    setTouchEnd(null);
+    setTouchStart(e.targetTouches[0].clientX);
+    setIsPaused(true); // Pause auto-play on touch interaction
+  };
+
+  const onTouchMove = (e: TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > minSwipeDistance;
+    const isRightSwipe = distance < -minSwipeDistance;
+
+    if (isLeftSwipe) {
+      goToNext();
+    }
+    if (isRightSwipe) {
+      goToPrevious();
+    }
+    
+    // Optional: Resume auto-play after a delay or let mouseLeave handle it?
+    // For mobile, we usually don't have mouseLeave. 
+    // Let's just unset paused after a short delay or rely on state toggle.
+    // Actually simpler: just re-enable auto-play logic by doing nothing specific, 
+    // unless we want to enforce it. The useEffect depends on 'isPaused'. 
+    // If we set it true here, it stays true. We should set it false after interaction.
+    setTimeout(() => setIsPaused(false), 2000); 
+  };
+
   return (
     <div 
       className="relative w-full"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
     >
       {/* Carousel Slides */}
       <div className="relative overflow-hidden">

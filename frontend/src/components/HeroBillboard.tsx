@@ -65,13 +65,13 @@ export default function HeroBillboard({ item }: HeroProps) {
                                 <span className="text-red-500 font-bold uppercase">{item.type}</span>
                             </div>
 
-                            <h1 className="text-4xl md:text-6xl font-black text-white leading-tight drop-shadow-2xl">
+                            <h1 className="text-4xl md:text-6xl font-black text-white leading-tight drop-shadow-2xl line-clamp-1">
                                 {item.title}
                             </h1>
                         </div>
 
                         {item.desc && (
-                            <p className="text-zinc-300 text-sm md:text-base line-clamp-3 md:line-clamp-4 leading-relaxed max-w-xl mx-auto md:mx-0">
+                            <p className="text-zinc-300 text-sm md:text-base line-clamp-2 leading-relaxed max-w-xl mx-auto md:mx-0">
                                 {item.desc}
                             </p>
                         )}
