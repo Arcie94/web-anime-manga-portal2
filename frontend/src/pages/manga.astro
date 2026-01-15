@@ -8,22 +8,63 @@ import { FEATURED_MANGA } from "../data/featuredManga";
 
 export const prerender = false;
 
-// Fetch homepage data from Sankavollerei Comic API
+// Fetch homepage data from Sankavollerei Comic API (SSR)
 let trendingManga: any[] = [];
 let ongoingManga: any[] = [];
+let actionManga: any[] = [];
+let romanceManga: any[] = [];
+let dramaManga: any[] = [];
+let fantasyManga: any[] = [];
 
 try {
-  const homeData = await apiFetch<{
-    data: { trending: any[]; ongoing: any[] };
-  }>("/manga/home");
+  // Parallel fetch for all sections
+  const [homeData, actionData, romanceData, dramaData, fantasyData] =
+    await Promise.all([
+      apiFetch<{ data: { trending: any[]; ongoing: any[] } }>("/manga/home"),
+      apiFetch<{ data: { mangaList: any[] } }>("/manga/genres/Action"),
+      apiFetch<{ data: { mangaList: any[] } }>("/manga/genres/Romance"),
+      apiFetch<{ data: { mangaList: any[] } }>("/manga/genres/Drama"),
+      apiFetch<{ data: { mangaList: any[] } }>("/manga/genres/Fantasy"),
+    ]);
 
   if (homeData?.data) {
     trendingManga = homeData.data.trending || [];
     ongoingManga = homeData.data.ongoing || [];
   }
+
+  actionManga = actionData?.data?.mangaList || [];
+  romanceManga = romanceData?.data?.mangaList || [];
+  dramaManga = dramaData?.data?.mangaList || [];
+  fantasyManga = fantasyData?.data?.mangaList || [];
 } catch (error) {
   console.error("Failed to fetch manga home data:", error);
 }
+
+// Deduplication Logic
+const seenIds = new Set<string>();
+
+const filterDuplicates = (items: any[]) => {
+  return items.filter((item) => {
+    // Identify by slug or title if slug is missing, but slug is preferred
+    const id = item.slug || item.title;
+    if (!id) return true; // Keep items without ID just in case
+
+    if (seenIds.has(id)) {
+      return false;
+    }
+    seenIds.add(id);
+    return true;
+  });
+};
+
+// Apply filter sequentially (Priority ORDER matters!)
+trendingManga = filterDuplicates(trendingManga);
+ongoingManga = filterDuplicates(ongoingManga);
+// Genres comes after trending/ongoing
+actionManga = filterDuplicates(actionManga);
+romanceManga = filterDuplicates(romanceManga);
+dramaManga = filterDuplicates(dramaManga);
+fantasyManga = filterDuplicates(fantasyManga);
 ---
 
 <Layout title="AnimePlay - Read Manga Online">
@@ -35,19 +76,17 @@ try {
   {/* Sub-Header Categories */}
   <CategoryRow client:visible />
 
-  {/* Content Rows */}
+  {/* Content Rows (Hydrated for interactivity) */}
   <ContentRow
     title="Trending Manga"
-    endpoint="/manga/trending"
-    dataKey="mangaList"
+    items={trendingManga}
     type="manga"
     client:load
   />
 
   <ContentRow
     title="Ongoing Manga"
-    endpoint="/manga/ongoing"
-    dataKey="mangaList"
+    items={ongoingManga}
     type="manga"
     client:load
   />
@@ -55,29 +94,25 @@ try {
   {/* Genre Sections */}
   <ContentRow
     title="Action Manga"
-    endpoint="/manga/genres/Action"
-    dataKey="mangaList"
+    items={actionManga}
     type="manga"
     client:visible
   />
   <ContentRow
     title="Romance Manga"
-    endpoint="/manga/genres/Romance"
-    dataKey="mangaList"
+    items={romanceManga}
     type="manga"
     client:visible
   />
   <ContentRow
     title="Drama Manga"
-    endpoint="/manga/genres/Drama"
-    dataKey="mangaList"
+    items={dramaManga}
     type="manga"
     client:visible
   />
   <ContentRow
     title="Fantasy Manga"
-    endpoint="/manga/genres/Fantasy"
-    dataKey="mangaList"
+    items={fantasyManga}
     type="manga"
     client:visible
   />
