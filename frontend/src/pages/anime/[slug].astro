@@ -1,7 +1,7 @@
 ---
 import Layout from "../../layouts/Layout.astro";
 import { apiFetch } from "../../lib/api";
-import { parseSynopsis } from "../../lib/utils";
+import { parseSynopsis, getAnimeImage } from "../../lib/utils";
 
 export const prerender = false;
 
@@ -57,7 +57,7 @@ const firstEpisode = anime.episodeList?.[anime.episodeList.length - 1];
   >
     <div class="absolute inset-0 bg-zinc-950/80 z-10"></div>
     <img
-      src={anime.poster || anime.cover || anime.image}
+      src={getAnimeImage(anime)}
       alt="Ambient Background"
       class="w-full h-full object-cover blur-[50px] scale-125 opacity-50"
     />
@@ -70,7 +70,7 @@ const firstEpisode = anime.episodeList?.[anime.episodeList.length - 1];
         <!-- Poster - Mobile Responsive -->
         <div class="w-32 sm:w-40 md:w-52 lg:w-64 flex-shrink-0">
           <img
-            src={anime.poster || anime.cover || anime.image}
+            src={getAnimeImage(anime)}
             alt={anime.title}
             class="w-full rounded-lg shadow-2xl ring-1 ring-white/10 block"
             loading="eager"

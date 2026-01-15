@@ -2,6 +2,7 @@ import { useRef, useEffect, useState } from 'react';
 import { FaChevronLeft, FaChevronRight, FaPlay } from "react-icons/fa";
 import SkeletonRow from "./skeletons/SkeletonRow";
 import { apiFetch } from '../lib/api';
+import { getAnimeImage } from '../lib/utils';
 
 interface Props {
     title: string;
@@ -98,7 +99,7 @@ export default function ContentRow({ title, items: initialItems = [], endpoint, 
                         >
                             <div className="aspect-[2/3] w-full relative rounded-xl overflow-hidden shadow-lg bg-zinc-900">
                                 <img 
-                                    src={item.poster || item.cover || item.image} 
+                                    src={getAnimeImage(item)} 
                                     alt={item.title} 
                                     className="w-full h-full object-cover transition-transform duration-500 group-hover/card:scale-110"
                                     loading="lazy"

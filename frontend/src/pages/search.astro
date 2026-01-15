@@ -1,6 +1,7 @@
 ---
 import Layout from "../layouts/Layout.astro";
 import { apiFetch } from "../lib/api";
+import { getAnimeImage } from "../lib/utils";
 import { FaSearch, FaPlay } from "react-icons/fa";
 
 export const prerender = false;
@@ -166,9 +167,7 @@ if (q) {
                 class="group relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-900 shadow-lg ring-1 ring-white/5 hover:ring-white/20 hover:scale-105 transition-all duration-300 transform"
               >
                 <img
-                  src={
-                    item.cover || item.poster || item.thumbnail || item.image
-                  }
+                  src={getAnimeImage(item)}
                   alt={item.title}
                   class="w-full h-full object-cover group-hover:opacity-40 transition-opacity"
                   loading="lazy"

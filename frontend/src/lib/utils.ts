@@ -31,3 +31,19 @@ export function parseSynopsis(content: string | any): string {
 
   return content;
 }
+
+/**
+ * Get the best available image source from an anime object.
+ * Checks poster -> cover -> thumbnail -> image.
+ * Returns a placeholder if no image is found.
+ */
+export function getAnimeImage(item: any): string {
+  if (!item) return "https://placehold.co/200x300/222/999?text=No+Data";
+  return (
+    item.poster ||
+    item.cover ||
+    item.thumbnail ||
+    item.image ||
+    "https://placehold.co/200x300/222/999?text=No+Image"
+  );
+}
