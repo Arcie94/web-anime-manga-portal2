@@ -18,20 +18,24 @@ let fantasyManga: any[] = [];
 
 try {
   // Parallel fetch for all sections
-  const [homeData, actionData, romanceData, dramaData, fantasyData] =
-    await Promise.all([
-      apiFetch<{ data: { trending: any[]; ongoing: any[] } }>("/manga/home"),
-      apiFetch<{ data: { mangaList: any[] } }>("/manga/genres/Action"),
-      apiFetch<{ data: { mangaList: any[] } }>("/manga/genres/Romance"),
-      apiFetch<{ data: { mangaList: any[] } }>("/manga/genres/Drama"),
-      apiFetch<{ data: { mangaList: any[] } }>("/manga/genres/Fantasy"),
-    ]);
+  const [
+    trendingData,
+    ongoingData,
+    actionData,
+    romanceData,
+    dramaData,
+    fantasyData,
+  ] = await Promise.all([
+    apiFetch<{ data: { mangaList: any[] } }>("/manga/trending"),
+    apiFetch<{ data: { mangaList: any[] } }>("/manga/ongoing"),
+    apiFetch<{ data: { mangaList: any[] } }>("/manga/genres/Action"),
+    apiFetch<{ data: { mangaList: any[] } }>("/manga/genres/Romance"),
+    apiFetch<{ data: { mangaList: any[] } }>("/manga/genres/Drama"),
+    apiFetch<{ data: { mangaList: any[] } }>("/manga/genres/Fantasy"),
+  ]);
 
-  if (homeData?.data) {
-    trendingManga = homeData.data.trending || [];
-    ongoingManga = homeData.data.ongoing || [];
-  }
-
+  trendingManga = trendingData?.data?.mangaList || [];
+  ongoingManga = ongoingData?.data?.mangaList || [];
   actionManga = actionData?.data?.mangaList || [];
   romanceManga = romanceData?.data?.mangaList || [];
   dramaManga = dramaData?.data?.mangaList || [];
@@ -59,7 +63,17 @@ const filterDuplicates = (items: any[]) => {
 
 // Apply filter sequentially (Priority ORDER matters!)
 trendingManga = filterDuplicates(trendingManga);
-ongoingManga = filterDuplicates(ongoingManga);
+
+// Latest/Ongoing: Show ALL (even if in Trending), but mark them so they don't appear in Genres
+const markAsSeen = (items: any[]) => {
+  items.forEach((item) => {
+    const id = item.slug || item.title;
+    if (id) seenIds.add(id);
+  });
+  return items;
+};
+ongoingManga = markAsSeen(ongoingManga);
+
 // Genres comes after trending/ongoing
 actionManga = filterDuplicates(actionManga);
 romanceManga = filterDuplicates(romanceManga);
@@ -85,7 +99,7 @@ fantasyManga = filterDuplicates(fantasyManga);
   />
 
   <ContentRow
-    title="Ongoing Manga"
+    title="Latest Updates"
     items={ongoingManga}
     type="manga"
     client:load
