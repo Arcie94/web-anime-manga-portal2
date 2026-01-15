@@ -1,14 +1,26 @@
-# SERVE STAGE (Requires local 'npm run build' first)
-FROM node:20-slim
-
+# STAGE 1: Build
+FROM node:20-slim AS builder
 WORKDIR /app
 
-# 1. Install Production Dependencies Only (Cached layer)
+# Copy package info and install ALL dependencies (including devDeps for building)
+COPY package.json ./
+# Do NOT copy package-lock from Windows host to avoid platform mismatch
+RUN npm install
+
+# Copy source code and build
+COPY . .
+RUN npm run build
+
+# STAGE 2: Runtime
+FROM node:20-slim AS runtime
+WORKDIR /app
+
+# Install only production deps for runtime
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev
 
-# 2. Copy the pre-built application from Host
-COPY dist ./dist
+# Copy built assets from builder stage
+COPY --from=builder /app/dist ./dist
 
 ENV HOST=0.0.0.0
 ENV PORT=4321
