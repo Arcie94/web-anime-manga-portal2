@@ -18,11 +18,14 @@ var enrichmentCache = make(map[string]EnrichedData)
 var cacheMutex sync.RWMutex
 
 type EnrichedData struct {
-	Year        string `json:"year"`
-	Rating      string `json:"rating"`
-	Synopsis    string `json:"synopsis"`
-	Status      string `json:"status"` // e.g. "Completed", "Ongoing"
-	LastUpdated int64  `json:"-"`
+	Year     string `json:"year"`
+	Rating   string `json:"rating"`
+	Synopsis string `json:"synopsis"`
+	Status   string `json:"status"` // e.g. "Completed", "Ongoing"
+	Author   string `json:"author"`
+	Genre    string `json:"genre"`
+	// Type removed as we are hardcoding it to "Anime"
+	LastUpdated int64 `json:"-"`
 }
 
 type GeminiRequest struct {
@@ -49,12 +52,12 @@ type GeminiResponse struct {
 
 // EnrichData attempts to fetch metadata from Gemini for a given title
 func EnrichData(title string, mediaType string) EnrichedData {
+	// (Cache logic omitted to keep diff small, assume it's there)
 	// Check Cache First
 	cacheMutex.RLock()
 	cached, exists := enrichmentCache[title]
 	cacheMutex.RUnlock()
 	if exists {
-		// Simple TTL (e.g. 24 hours) - though for years/static data it could be forever
 		if time.Now().Unix()-cached.LastUpdated < 86400 {
 			return cached
 		}
@@ -62,7 +65,7 @@ func EnrichData(title string, mediaType string) EnrichedData {
 
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
-		apiKey = "AIzaSyBWZ4cXMHDd5U2-zpaCn54sCExFSDQcH6U" // Fallback/User Provided provided in session
+		apiKey = "AIzaSyBWZ4cXMHDd5U2-zpaCn54sCExFSDQcH6U" // Fallback/User Provided
 	}
 
 	// Construct Prompt
@@ -71,6 +74,8 @@ func EnrichData(title string, mediaType string) EnrichedData {
     - "year": (string) Release year (e.g. "2023").
     - "rating": (string) Average score 0-10 (e.g. "8.5").
     - "status": (string) "Ongoing" or "Completed".
+    - "author": (string) Original creator/mangaka.
+    - "genre": (string) Comma-separated genres (e.g. "Action, Adventure").
     - "synopsis": (string) A very short, engaging 1-sentence summary.
     If unknown, return generic/empty values but valid JSON.`, mediaType, title)
 

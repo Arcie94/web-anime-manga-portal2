@@ -15,6 +15,8 @@ type Anime struct {
 	TotalEpisodes string      `json:"totalEpisodes"`
 	Status        string      `json:"status"` // Added for Sankavollerei
 	Rating        string      `json:"rating"` // Added for Sankavollerei
+	Author        string      `json:"author"` // Added for AI Enrichment
+	Type          string      `json:"type"`   // Added for AI Enrichment (TV, Movie, OVA)
 }
 
 // Episode model (existing - keep as is)

@@ -36,6 +36,10 @@ func (s *SankavollereiService) enrichAnimeWithGemini(items []models.Anime) []mod
 				}
 			}(i)
 		}
+
+		// User requested Type to be "Anime" always, instead of "TV"/"Movie" or empty.
+		// This applies to all lists (Home, Ongoing, Completed, Search, Genre)
+		items[i].Type = "Anime"
 	}
 	wg.Wait()
 	return items
@@ -43,17 +47,27 @@ func (s *SankavollereiService) enrichAnimeWithGemini(items []models.Anime) []mod
 
 // GetHome fetches ongoing and completed anime from homepage
 func (s *SankavollereiService) GetHome() (*models.HomeResponse, error) {
-	var result models.HomeResponse
+	// Check cache first (cache the enriched data, not raw API response)
+	cacheKey := s.Prefix + "home_enriched"
+	if cached, found := s.Cache.Get(cacheKey); found {
+		if result, ok := cached.(*models.HomeResponse); ok {
+			return result, nil
+		}
+	}
 
-	// Cache for 5 minutes
-	err := s.makeRequestWithCache("home", &result, 5*time.Minute)
+	// Fetch raw data from API (no cache for raw data)
+	var result models.HomeResponse
+	err := s.makeRequest("home", &result)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get home data: %w", err)
 	}
 
-	// AI Enrichment
+	// AI Enrichment (this now happens BEFORE caching)
 	result.Data.Ongoing.AnimeList = s.enrichAnimeWithGemini(result.Data.Ongoing.AnimeList)
 	result.Data.Completed.AnimeList = s.enrichAnimeWithGemini(result.Data.Completed.AnimeList)
+
+	// Cache the enriched result for 5 minutes
+	s.Cache.Set(cacheKey, &result, 5*time.Minute)
 
 	return &result, nil
 }
@@ -144,6 +158,34 @@ func (s *SankavollereiService) GetAnimeDetail(slug string) (*models.AnimeDetailR
 	if err != nil {
 		return nil, fmt.Errorf("failed to get anime detail: %w", err)
 	}
+
+	// AI Enrichment (Gemini)
+	// Check if key data is missing. Otakudesu usually returns empty strings for Genre/Rating/Author/Type.
+	if result.Data.Author == "" || result.Data.Genre == "" {
+		func() {
+			// Run enrichment
+			enriched := EnrichData(result.Data.Title, "anime")
+
+			if enriched.Year != "" && result.Data.ReleaseDate == "" {
+				result.Data.ReleaseDate = enriched.Year
+			}
+			if enriched.Author != "" && result.Data.Author == "" {
+				result.Data.Author = enriched.Author
+			}
+			if enriched.Genre != "" && result.Data.Genre == "" {
+				result.Data.Genre = enriched.Genre
+			}
+			if enriched.Rating != "" && result.Data.Rating == "" {
+				result.Data.Rating = enriched.Rating
+			}
+			if enriched.Status != "" && result.Data.Status == "" {
+				result.Data.Status = enriched.Status
+			}
+		}()
+	}
+
+	// User requested "Type" to be "Anime" always, instead of "TV"/"Movie" or empty.
+	result.Data.Type = "Anime"
 
 	return &result, nil
 }

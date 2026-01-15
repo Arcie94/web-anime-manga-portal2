@@ -99,6 +99,45 @@ func (s *AnimeService) GetAnimeDetail(slug string) (*models.AnimeDetail, error) 
 		}
 	}
 
+	// AI Enrichment (Gemini)
+	// Check if key data is missing (Author, Type, Year, etc.)
+	// Anime API usually returns empty strings for Genre/Rating too.
+	if response.Data.Author == "" || response.Data.Type == "" || response.Data.Genre == "" {
+		func() {
+			// Run enrichment
+			enriched := EnrichData(response.Data.Title, "anime")
+
+			if enriched.Year != "" && response.Data.ReleaseDate == "" {
+				response.Data.ReleaseDate = enriched.Year
+			}
+			if enriched.Author != "" && response.Data.Author == "" {
+				response.Data.Author = enriched.Author
+			}
+
+			// User requested Type to be "Anime" always, instead of specific formats like "TV"
+			if response.Data.Type == "" {
+				response.Data.Type = "Anime"
+			}
+			if enriched.Genre != "" && response.Data.Genre == "" {
+				response.Data.Genre = enriched.Genre
+			}
+			if enriched.Rating != "" && response.Data.Rating == "" {
+				response.Data.Rating = enriched.Rating
+			}
+			if enriched.Status != "" && response.Data.Status == "" {
+				response.Data.Status = enriched.Status
+			}
+		}()
+	} else {
+		// Ensure Type is set even if enrichment isn't triggered
+		// User requested override: "Anime" instead of "TV/Movie"
+		response.Data.Type = "Anime"
+	}
+
+	// Force Type to be "Anime" globally if it wasn't set above (or overwrite it)
+	// Actually, to be safe and cleaner, let's just force it here finally.
+	response.Data.Type = "Anime"
+
 	return &response.Data, nil
 }
 

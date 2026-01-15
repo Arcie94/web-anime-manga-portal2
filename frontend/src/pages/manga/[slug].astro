@@ -101,8 +101,48 @@ const firstChapter = manga.chapters?.[manga.chapters.length - 1];
             >
           </div>
 
-          <!-- Action Buttons - Responsive flex -->
-          <div class="flex gap-3 pt-2">
+          <!-- Extended Metadata (Fills empty space on mobile) -->
+          <div
+            class="flex flex-col gap-1 mt-3 text-xs text-zinc-400 font-medium"
+          >
+            {
+              manga.metadata?.author && (
+                <div class="flex items-center gap-2">
+                  <span class="text-zinc-500 w-12">Author</span>
+                  <span class="text-zinc-200 truncate">
+                    {manga.metadata.author}
+                  </span>
+                </div>
+              )
+            }
+            {
+              manga.metadata?.status && (
+                <div class="flex items-center gap-2">
+                  <span class="text-zinc-500 w-12">Status</span>
+                  <span
+                    class={`uppercase text-[10px] px-1.5 py-0.5 rounded border ${
+                      manga.metadata.status.toLowerCase().includes("ongoing")
+                        ? "bg-green-500/10 text-green-400 border-green-500/20"
+                        : "bg-blue-500/10 text-blue-400 border-blue-500/20"
+                    }`}
+                  >
+                    {manga.metadata.status}
+                  </span>
+                </div>
+              )
+            }
+            {
+              manga.metadata?.type && (
+                <div class="flex items-center gap-2">
+                  <span class="text-zinc-500 w-12">Type</span>
+                  <span class="text-zinc-200">{manga.metadata.type}</span>
+                </div>
+              )
+            }
+          </div>
+
+          <!-- Action Buttons - Desktop (Hidden on Mobile) -->
+          <div class="hidden md:flex gap-3 pt-2">
             {
               firstChapter && (
                 <a
@@ -135,6 +175,40 @@ const firstChapter = manga.chapters?.[manga.chapters.length - 1];
             </button>
           </div>
         </div>
+      </div>
+
+      <!-- Action Buttons - Mobile Only (Full Width Below) -->
+      <div class="md:hidden grid grid-cols-2 gap-3 mt-6">
+        {
+          firstChapter && (
+            <a
+              href={`/manga/read/${firstChapter.slug || firstChapter.chapterId}`}
+              class="flex items-center justify-center gap-2 bg-red-600 text-white px-4 py-3 rounded-xl font-bold text-base shadow-lg active:scale-95 transition-transform"
+            >
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M9 4.804A7.968 7.968 0 005.5 4c-1.255 0-2.443.29-3.5.804v10A7.969 7.969 0 015.5 14c1.669 0 3.218.51 4.5 1.385A7.962 7.962 0 0114.5 14c1.255 0 2.443.29 3.5.804v-10A7.968 7.968 0 0014.5 4c-1.255 0-2.443.29-3.5.804V12a1 1 0 11-2 0V4.804z" />
+              </svg>
+              Read Now
+            </a>
+          )
+        }
+        <button
+          class="flex items-center justify-center gap-2 bg-white/10 text-white px-4 py-3 rounded-xl font-bold text-base backdrop-blur-sm border border-white/10 active:scale-95 transition-transform"
+        >
+          <svg
+            class="w-5 h-5"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"></path>
+          </svg>
+          My List
+        </button>
       </div>
     </div>
   </div>

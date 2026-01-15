@@ -35,7 +35,7 @@ export default function AnimeGrid({ items, type = 'anime' }: Props) {
 
                         {/* Badge Top Left */}
                         <div className="absolute top-2 left-2 bg-zinc-900/80 backdrop-blur text-white text-[10px] font-bold px-2 py-0.5 rounded border border-white/10 uppercase">
-                            {type === 'anime' ? 'TV' : 'MANGA'}
+                            {item.type?.toUpperCase() || (type === 'anime' ? 'ANIME' : 'MANGA')}
                         </div>
 
                         {/* Badge Top Right (Episode) */}
