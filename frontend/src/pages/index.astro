@@ -26,7 +26,7 @@ try {
 }
 ---
 
-<Layout title="TanyaAyomi - Watch TV Shows Online, Watch Movies Online">
+<Layout title="AnimePlay - Watch TV Shows Online, Watch Movies Online">
   {/* Hero Carousel */}
   <div class="relative z-0">
     <HeroCarousel featured={FEATURED_ANIME} client:only="react" />
@@ -54,4 +54,34 @@ try {
       />
     )
   }
+
+  {/* Genre Sections */}
+  <ContentRow
+    title="Action Anime"
+    endpoint="/anime/genres/Action"
+    dataKey="animeList"
+    type="anime"
+    client:visible
+  />
+  <ContentRow
+    title="Romance Anime"
+    endpoint="/anime/genres/Romance"
+    dataKey="animeList"
+    type="anime"
+    client:visible
+  />
+  <ContentRow
+    title="Drama Anime"
+    endpoint="/anime/genres/Drama"
+    dataKey="animeList"
+    type="anime"
+    client:visible
+  />
+  <ContentRow
+    title="Fantasy Anime"
+    endpoint="/anime/genres/Fantasy"
+    dataKey="animeList"
+    type="anime"
+    client:visible
+  />
 </Layout>

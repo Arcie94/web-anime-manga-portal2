@@ -44,7 +44,7 @@ export default function HeroBillboard({ item }: HeroProps) {
                 <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 w-full">
                     
                     {/* Poster - Enhanced size for mobile prominence */}
-                    <div className="w-56 sm:w-64 md:w-72 lg:w-[240px] aspect-[2/3] flex-shrink-0 shadow-2xl rounded-lg overflow-hidden border border-white/10 md:rotate-1 transform md:hover:rotate-0 transition-all duration-300 mx-auto md:mx-0">
+                    <div className="w-56 sm:w-64 md:w-72 lg:w-[240px] aspect-[2/3] flex-shrink-0 shadow-2xl rounded-lg overflow-hidden border border-white/10 transform transition-all duration-300 mx-auto md:mx-0">
                          <img 
                             src={posterImage} 
                             alt={item.title} 

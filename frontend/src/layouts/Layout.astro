@@ -22,7 +22,7 @@ const showLogo =
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
     <script>
@@ -63,11 +63,16 @@ const showLogo =
               <a
                 href="/"
                 class:list={[
-                  "text-2xl md:text-3xl font-bold text-[#E50914] tracking-tighter uppercase relative top-[1px]",
+                  "text-2xl md:text-3xl font-bold text-[#E50914] tracking-tighter uppercase flex items-center gap-3",
                   { hidden: !showLogo },
                 ]}
               >
-                TANYAAYOMI
+                <img
+                  src="/logo.png"
+                  alt="AnimePlay Logo"
+                  class="h-12 md:h-14 w-auto"
+                />
+                AnimePlay
               </a>
             </div>
           </nav>
