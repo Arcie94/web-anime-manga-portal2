@@ -34,36 +34,74 @@ if (slug) {
 }
 ---
 
-<Layout title="Baca Manga - AnimePlay" allowZoom={true}>
-  <div class="max-w-4xl mx-auto">
-    <div
-      class="flex items-center justify-between mb-6 sticky top-20 z-40 bg-gray-900/90 backdrop-blur p-4 rounded-xl border border-gray-800"
+<Layout
+  title="Baca Manga - AnimePlay"
+  allowZoom={true}
+  hideHeader={true}
+  hideBottomNav={true}
+>
+  <!-- Immersive Header (Auto-hide) -->
+  <div
+    id="reader-header"
+    class="fixed top-0 left-0 right-0 z-50 flex items-center justify-between bg-black/90 backdrop-blur-md px-4 py-3 border-b border-white/10 transition-transform duration-300"
+  >
+    <button
+      onclick="history.length > 1 ? history.back() : window.location.href = '/manga'"
+      class="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/20 text-white transition-all active:scale-95"
+      aria-label="Kembali"
     >
-      <button
-        onclick="history.length > 1 ? history.back() : window.location.href = '/manga'"
-        class="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-white/20 text-white border border-white/10 transition-all hover:scale-110 active:scale-95 backdrop-blur-sm"
-        aria-label="Kembali"
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke-width="2.5"
+        stroke="currentColor"
+        class="w-5 h-5"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke-width="2.5"
-          stroke="currentColor"
-          class="w-5 h-5"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"></path>
-        </svg>
-      </button>
-      <h1 id="chapter-header-title" class="text-lg font-bold text-gray-200">
-        {title || "Chapter Reader"}
-      </h1>
-      <div></div>
-      {/* Spacer */}
-    </div>
+        <path
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18"></path>
+      </svg>
+    </button>
+
+    <h1
+      id="chapter-header-title"
+      class="text-base md:text-lg font-bold text-gray-100 truncate max-w-[60vw] text-center"
+    >
+      {title || "Chapter Reader"}
+    </h1>
+
+    <div class="w-10"></div>
+    <!-- Spacer for alignment -->
+  </div>
+
+  <script>
+    // Smart Auto-Hide Logic
+    let lastScrollY = window.scrollY;
+    const header = document.getElementById("reader-header");
+
+    window.addEventListener(
+      "scroll",
+      () => {
+        const currentScrollY = window.scrollY;
+
+        if (currentScrollY > lastScrollY && currentScrollY > 100) {
+          // Scrolling Down -> Hide
+          header?.classList.add("-translate-y-full");
+        } else {
+          // Scrolling Up -> Show
+          header?.classList.remove("-translate-y-full");
+        }
+
+        lastScrollY = currentScrollY;
+      },
+      { passive: true }
+    );
+  </script>
+
+  <div class="max-w-4xl mx-auto pt-16">
+    <!-- Added pt-16 to compensate for fixed header -->
 
     {
       error && (

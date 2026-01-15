@@ -6,9 +6,15 @@ interface Props {
   title: string;
   hideHeader?: boolean;
   allowZoom?: boolean;
+  hideBottomNav?: boolean;
 }
 
-const { title, hideHeader = false, allowZoom = false } = Astro.props;
+const {
+  title,
+  hideHeader = false,
+  allowZoom = false,
+  hideBottomNav = false,
+} = Astro.props;
 const pathname = Astro.url.pathname;
 const showLogo =
   pathname === "/" || pathname === "/manga" || pathname === "/manga/";
@@ -85,9 +91,13 @@ const showLogo =
       <slot />
     </main>
 
-    {/* Mobile Bottom Navigation - Visible on ALL screens now */}
-    <div class="fixed bottom-0 left-0 right-0 z-50">
-      <BottomNav client:idle />
-    </div>
+    {/* Mobile Bottom Navigation - Visible on ALL screens now, unless hidden */}
+    {
+      !hideBottomNav && (
+        <div class="fixed bottom-0 left-0 right-0 z-50">
+          <BottomNav client:idle />
+        </div>
+      )
+    }
   </body>
 </html>
