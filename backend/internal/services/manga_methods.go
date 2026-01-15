@@ -4,9 +4,25 @@ import (
 	"anime-tanyaayomi/internal/models"
 	"fmt"
 	"net/url"
+	"regexp"
 	"strings"
+	"sync" // Added sync
 	"time"
 )
+
+// Helper to remove resize/quality params from image URL
+func cleanImageURL(imgUrl string) string {
+	if imgUrl == "" {
+		return ""
+	}
+	// Regex to remove ?resize=... or &resize=... and ?quality=... or &quality=...
+	reResize := regexp.MustCompile(`[?&]resize=[^&]+`)
+	reQuality := regexp.MustCompile(`[?&]quality=[^&]+`)
+
+	clean := reResize.ReplaceAllString(imgUrl, "")
+	clean = reQuality.ReplaceAllString(clean, "")
+	return clean
+}
 
 // extractSlugFromLink extracts slug from link field (e.g., "/manga/slug-name/" -> "slug-name")
 func extractSlugFromLink(link string) string {
@@ -20,24 +36,80 @@ func extractSlugFromLink(link string) string {
 	return link
 }
 
+// enrichMangaListURLs fetches detailed info for each manga in parallel to get the high-quality portrait image
+func (s *SankavollereiService) enrichMangaListURLs(items []models.Manga) []models.Manga {
+	var wg sync.WaitGroup
+	// Limit concurrency to avoid overwhelming the upstream server or local resources
+	maxConcurrency := 10
+	sem := make(chan struct{}, maxConcurrency)
+
+	for i := range items {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			// Ensure slug exists
+			if items[idx].Slug == "" && items[idx].Link != "" {
+				items[idx].Slug = extractSlugFromLink(items[idx].Link)
+			}
+			if items[idx].Slug == "" {
+				return
+			}
+
+			// Fetch detail (utilizes existing cache on GetMangaDetail)
+			detail, err := s.GetMangaDetail(items[idx].Slug)
+			if err == nil && detail.Image != "" {
+				// Replace low-res/landscape image with high-quality portrait from detail
+				// GetMangaDetail already cleans the URL
+				items[idx].Image = detail.Image
+				items[idx].Cover = detail.Image
+				items[idx].Poster = detail.Image
+				items[idx].Thumbnail = detail.Image
+			} else {
+				// Fallback: just clean the existing URL
+				items[idx].Image = cleanImageURL(items[idx].Image)
+				items[idx].Cover = cleanImageURL(items[idx].Cover)
+				items[idx].Poster = cleanImageURL(items[idx].Poster)
+				items[idx].Thumbnail = cleanImageURL(items[idx].Thumbnail)
+			}
+		}(i)
+	}
+	wg.Wait()
+	return items
+}
+
+// filterBlacklistedManga removes unwanted items (e.g. "APK") from the list
+func (s *SankavollereiService) filterBlacklistedManga(items []models.Manga) []models.Manga {
+	var filtered []models.Manga
+	for _, item := range items {
+		title := strings.ToLower(item.Title)
+		if strings.Contains(title, "apk") || strings.Contains(title, "komiku plus") {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered
+}
+
 // GetMangaHome fetches trending and popular manga from homepage
 func (s *SankavollereiService) GetMangaHome() (*models.MangaListResponse, error) {
 	var result struct {
 		Trending []models.Manga `json:"trending"`
 	}
 
-	// Cache for 5 minutes
-	err := s.makeRequestWithCache("comic/trending", &result, 5*time.Minute)
+	// Cache for 30 minutes (Increased from 5 due to heavy enrichment)
+	err := s.makeRequestWithCache("comic/trending", &result, 30*time.Minute)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get manga home data: %w", err)
 	}
 
-	// Extract slugs from link fields
-	for i := range result.Trending {
-		if result.Trending[i].Slug == "" && result.Trending[i].Link != "" {
-			result.Trending[i].Slug = extractSlugFromLink(result.Trending[i].Link)
-		}
-	}
+	// Filter unwanted items
+	result.Trending = s.filterBlacklistedManga(result.Trending)
+
+	// Enrich images in parallel
+	result.Trending = s.enrichMangaListURLs(result.Trending)
 
 	return &models.MangaListResponse{
 		Data: struct {
@@ -61,11 +133,19 @@ func (s *SankavollereiService) SearchManga(keyword string) (*models.MangaListRes
 		return nil, fmt.Errorf("failed to search manga: %w", err)
 	}
 
-	// Extract slugs
+	// Filter unwanted items
+	result.Data = s.filterBlacklistedManga(result.Data)
+
+	// For search, we might not want to enrich ALL results (slow), just clean them.
+	// Or we can enrich, but let's stick to cleaning for search responsiveness.
 	for i := range result.Data {
 		if result.Data[i].Slug == "" && result.Data[i].Link != "" {
 			result.Data[i].Slug = extractSlugFromLink(result.Data[i].Link)
 		}
+		result.Data[i].Cover = cleanImageURL(result.Data[i].Cover)
+		result.Data[i].Poster = cleanImageURL(result.Data[i].Poster)
+		result.Data[i].Thumbnail = cleanImageURL(result.Data[i].Thumbnail)
+		result.Data[i].Image = cleanImageURL(result.Data[i].Image)
 	}
 
 	return &models.MangaListResponse{
@@ -90,12 +170,11 @@ func (s *SankavollereiService) GetMangaGenre(slug string) (*models.MangaListResp
 		return nil, fmt.Errorf("failed to get genre manga: %w", err)
 	}
 
-	// Extract slugs
-	for i := range result.Comics {
-		if result.Comics[i].Slug == "" && result.Comics[i].Link != "" {
-			result.Comics[i].Slug = extractSlugFromLink(result.Comics[i].Link)
-		}
-	}
+	// Filter unwanted items
+	result.Comics = s.filterBlacklistedManga(result.Comics)
+
+	// Enrich images in parallel
+	result.Comics = s.enrichMangaListURLs(result.Comics)
 
 	return &models.MangaListResponse{
 		Data: struct {
@@ -124,12 +203,11 @@ func (s *SankavollereiService) GetOngoingManga(page int) (*models.MangaListRespo
 		return nil, fmt.Errorf("failed to get ongoing manga: %w", err)
 	}
 
-	// Extract slugs
-	for i := range result.Comics {
-		if result.Comics[i].Slug == "" && result.Comics[i].Link != "" {
-			result.Comics[i].Slug = extractSlugFromLink(result.Comics[i].Link)
-		}
-	}
+	// Filter unwanted items
+	result.Comics = s.filterBlacklistedManga(result.Comics)
+
+	// Enrich images in parallel
+	result.Comics = s.enrichMangaListURLs(result.Comics)
 
 	return &models.MangaListResponse{
 		Data: struct {
@@ -158,12 +236,11 @@ func (s *SankavollereiService) GetCompleteManga(page int) (*models.MangaListResp
 		return nil, fmt.Errorf("failed to get complete manga: %w", err)
 	}
 
-	// Extract slugs
-	for i := range result.Comics {
-		if result.Comics[i].Slug == "" && result.Comics[i].Link != "" {
-			result.Comics[i].Slug = extractSlugFromLink(result.Comics[i].Link)
-		}
-	}
+	// Filter unwanted items
+	result.Comics = s.filterBlacklistedManga(result.Comics)
+
+	// Enrich images in parallel
+	result.Comics = s.enrichMangaListURLs(result.Comics)
 
 	return &models.MangaListResponse{
 		Data: struct {
@@ -184,6 +261,8 @@ func (s *SankavollereiService) GetMangaDetail(slug string) (*models.MangaDetailR
 	if err != nil {
 		return nil, fmt.Errorf("failed to get manga detail: %w", err)
 	}
+
+	result.Image = cleanImageURL(result.Image)
 
 	return &result, nil
 }
@@ -208,18 +287,17 @@ func (s *SankavollereiService) GetTrendingManga() (*models.MangaListResponse, er
 		Trending []models.Manga `json:"trending"`
 	}
 
-	// Cache for 15 minutes
-	err := s.makeRequestWithCache("comic/trending", &result, 15*time.Minute)
+	// Cache for 30 minutes (Increased due to enrichment)
+	err := s.makeRequestWithCache("comic/trending", &result, 30*time.Minute)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get trending manga: %w", err)
 	}
 
-	// Extract slugs
-	for i := range result.Trending {
-		if result.Trending[i].Slug == "" && result.Trending[i].Link != "" {
-			result.Trending[i].Slug = extractSlugFromLink(result.Trending[i].Link)
-		}
-	}
+	// Filter unwanted items
+	result.Trending = s.filterBlacklistedManga(result.Trending)
+
+	// Enrich images in parallel
+	result.Trending = s.enrichMangaListURLs(result.Trending)
 
 	return &models.MangaListResponse{
 		Data: struct {
