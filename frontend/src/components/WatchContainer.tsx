@@ -1,6 +1,18 @@
 import React, { useState } from 'react';
 import VideoPlayer from './VideoPlayer';
 import { FaChevronLeft, FaChevronRight, FaServer } from 'react-icons/fa';
+import { MdHighQuality } from 'react-icons/md';
+
+interface StreamServer {
+  title: string;
+  serverId: string;
+  href: string;
+}
+
+interface Quality {
+  title: string;
+  serverList: StreamServer[];
+}
 
 interface WatchContainerProps {
   sources: {
@@ -8,6 +20,7 @@ interface WatchContainerProps {
     backup: string;
     direct: string;
   };
+  qualities?: Quality[];
   info: {
     animeTitle: string;
     episodeTitle: string;
@@ -20,14 +33,43 @@ interface WatchContainerProps {
   episodeList?: any[];
 }
 
-export default function WatchContainer({ sources, info, nav, episodeList = [] }: WatchContainerProps) {
-  // Determine initial source (prioritize default -> backup -> direct)
+export default function WatchContainer({ sources, qualities = [], info, nav, episodeList = [] }: WatchContainerProps) {
+  // Determine initial source (prioritize default → backup → direct)
   const [currentSrc, setCurrentSrc] = useState(sources.default || sources.backup || sources.direct);
   const [activeServer, setActiveServer] = useState(sources.default ? 'Server 1' : sources.backup ? 'Server 2' : 'Server 3');
+  const [selectedQuality, setSelectedQuality] = useState<string>('');
+  const [selectedQualityServer, setSelectedQualityServer] = useState<string>('');
+
 
   const handleServerChange = (src: string, name: string) => {
     setCurrentSrc(src);
     setActiveServer(name);
+    setSelectedQuality(''); // Reset quality when server changes
+    setSelectedQualityServer('');
+  };
+
+  const handleQualitySelect = (qualityTitle: string) => {
+    setSelectedQuality(qualityTitle);
+    setSelectedQualityServer(''); // Reset server when quality changes
+    setActiveServer(''); // Clear main server selection
+  };
+
+  const handleQualityServerSelect = (server: StreamServer, qualityTitle: string) => {
+    // Otakudesu's href is a direct link to their streaming iframe
+    // It's usually a relative path like "/anime/server/xxxxx" which needs to be accessed via Otakudesu's domain
+    // But VideoPlayer component handles .php URLs as iframes, so we can use href directly if it contains .php
+    // Or construct full Otakudesu URL if it's a relative path
+    let videoUrl = server.href;
+    
+    // If it's a relative path (starts with /), prefix with Otakudesu base URL
+    if (videoUrl.startsWith('/')) {
+      videoUrl = `https://otakudesu.cloud${videoUrl}`;
+    }
+    
+    setCurrentSrc(videoUrl);
+    setSelectedQuality(qualityTitle);
+    setSelectedQualityServer(server.serverId);
+    setActiveServer(''); // Clear main server selection
   };
 
   return (
@@ -44,9 +86,9 @@ export default function WatchContainer({ sources, info, nav, episodeList = [] }:
        </div>
 
        {/* Controls */}
-       <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-zinc-900/50 p-4 rounded-xl border border-white/5">
+       <div className="flex flex-col gap-4 bg-zinc-900/50 p-4 rounded-xl border border-white/5">
           {/* Server Selector */}
-          <div className="flex flex-wrap gap-2 items-center w-full md:w-auto">
+          <div className="flex flex-wrap gap-2 items-center w-full">
              <span className="text-zinc-500 text-sm flex items-center gap-2 mr-2">
                 <FaServer /> Servers:
              </span>
@@ -76,8 +118,63 @@ export default function WatchContainer({ sources, info, nav, episodeList = [] }:
              )}
           </div>
 
+          {/* Quality Selector (NEW) */}
+          {qualities.length > 0 && (
+             <div className="flex flex-col gap-3 w-full border-t border-white/5 pt-3">
+                {/* Quality Selection */}
+                <div className="flex flex-wrap gap-2 items-center">
+                   <span className="text-zinc-500 text-sm flex items-center gap-2 mr-2">
+                      <MdHighQuality className="text-lg" /> Quality:
+                   </span>
+                   {qualities.map((quality, idx) => {
+                      // Clean up title (remove duplicates and "Server 1 - Otakudesu" prefix if exists)
+                      const cleanTitle = quality.title.includes('p') 
+                        ? quality.title.split(' - ').pop() || quality.title
+                        : quality.title;
+                      
+                      return (
+                        <button
+                           key={idx}
+                           onClick={() => handleQualitySelect(quality.title)}
+                           className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
+                              selectedQuality === quality.title 
+                                ? 'bg-red-600 text-white ring-1 ring-red-500' 
+                                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
+                           }`}
+                        >
+                           {cleanTitle}
+                        </button>
+                      );
+                   })}
+                </div>
+
+                {/* Server Options for Selected Quality */}
+                {selectedQuality && (
+                   <div className="flex flex-wrap gap-2 items-center pl-8">
+                      <span className="text-zinc-600 text-xs">Pilih server:</span>
+                      {qualities
+                        .find(q => q.title === selectedQuality)
+                        ?.serverList.map((server, idx) => (
+                           <button
+                              key={idx}
+                              onClick={() => handleQualityServerSelect(server, selectedQuality)}
+                              className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                 selectedQualityServer === server.serverId
+                                   ? 'bg-red-600 text-white'
+                                   : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600 hover:text-white'
+                              }`}
+                           >
+                              {server.title}
+                           </button>
+                        ))
+                      }
+                   </div>
+                )}
+             </div>
+          )}
+
           {/* Navigation */}
-          <div className="flex gap-2 w-full md:w-auto border-t md:border-t-0 border-white/5 pt-4 md:pt-0 mt-2 md:mt-0">
+          <div className="flex gap-2 w-full md:w-auto border-t border-white/5 pt-3">
              {nav.nextSlug ? (
                  <a
                     href={`/anime/watch/${nav.nextSlug}`}

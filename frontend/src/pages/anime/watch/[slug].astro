@@ -71,6 +71,9 @@ const sources = {
   direct: streamData?.url || "",
 };
 
+// Extract qualities from API response
+const qualities = streamData?.server?.qualities || [];
+
 // Calculate Navigation
 let nav = { prevSlug: "", nextSlug: "" };
 let episodeNumber = "??";
@@ -241,6 +244,7 @@ function inputTitle(t: string, s: string) {
           <WatchContainer
             client:only="react"
             sources={sources}
+            qualities={qualities}
             info={{
               animeTitle: animeDetail?.title || "Unknown Anime",
               episodeTitle: `Episode ${episodeNumber}`,

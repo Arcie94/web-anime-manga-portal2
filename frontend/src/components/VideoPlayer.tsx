@@ -39,8 +39,13 @@ export default function VideoPlayer({ src, poster, title }: VideoPlayerProps) {
         <div className="w-full aspect-video bg-black rounded-xl overflow-hidden shadow-2xl relative group">
             {/* Player Wrapper */}
             <div className="absolute inset-0">
-                {/* Fallback to Iframe for Embed URLs (containing index.php or .php) */}
-                {src.includes('.php') ? (
+                {/* Fallback to Iframe for Embed URLs */}
+                {/* Oploverz player URLs (acefile, filedon, akirabox) need iframe */}
+                {(src.includes('.php') || 
+                  src.includes('/anime/server/') ||
+                  src.includes('acefile.co/player/') ||
+                  src.includes('filedon.co/view/') ||
+                  src.includes('akirabox.to/embed/')) ? (
                     <iframe 
                         src={src} 
                         className="w-full h-full border-0" 

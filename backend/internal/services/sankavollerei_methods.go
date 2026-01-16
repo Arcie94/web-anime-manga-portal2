@@ -5,6 +5,7 @@ import (
 	"anime-tanyaayomi/internal/models"
 	"anime-tanyaayomi/internal/repository"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
@@ -219,15 +220,89 @@ func (s *SankavollereiService) GetAnimeDetail(slug string) (*models.AnimeDetailR
 	return &result, nil
 }
 
-// GetEpisodeStream fetches streaming URLs for an episode
+// GetEpisodeStream fetches streaming URLs for an episode from multiple sources
+// Now aggregates both Otakudesu (Server 1) and Oploverz (Quality Selector)
 func (s *SankavollereiService) GetEpisodeStream(episodeId string) (*models.StreamResponse, error) {
 	var result models.StreamResponse
 
+	// Step 1: Get Otakudesu stream (Server 1 - Sub Indo, default quality)
 	endpoint := fmt.Sprintf("episode/%s", episodeId)
-	// Cache episode streams for 15 minutes
 	err := s.makeRequestWithCache(endpoint, &result, 15*time.Minute)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get episode stream: %w", err)
+	}
+
+	// Step 2: Try to get Oploverz streams for quality selector
+	oploverzService := NewOploverzService()
+	oploverzStreams, oploverzErr := oploverzService.GetEpisodeStream(episodeId)
+
+	if oploverzErr == nil && len(oploverzStreams) > 0 {
+		// Successfully got Oploverz streams, add as quality options
+		fmt.Printf("[Stream] ✅ Oploverz qualities available for %s\n", episodeId)
+
+		// Build quality options from Oploverz response
+		qualityOptions := []models.QualityOption{}
+
+		// Map of quality order for sorting
+		qualityOrder := map[string]int{
+			"360p":  1,
+			"480p":  2,
+			"720p":  3,
+			"1080p": 4,
+		}
+
+		// Group streams by quality
+		for quality, url := range oploverzStreams {
+			if quality == "default" {
+				continue // Skip default, we'll use specific qualities
+			}
+
+			// Create server entry for this quality
+			// Oploverz typically provides multiple mirrors per quality
+			serverList := []models.StreamServer{
+				{
+					Title:    "Oploverz",
+					ServerID: fmt.Sprintf("oploverz_%s", quality),
+					Href:     url,
+				},
+			}
+
+			qualityOptions = append(qualityOptions, models.QualityOption{
+				Title:      quality,
+				ServerList: serverList,
+			})
+		}
+
+		// Sort qualities by resolution (360p first, then 480p, 720p, 1080p)
+		sort.Slice(qualityOptions, func(i, j int) bool {
+			orderI := qualityOrder[qualityOptions[i].Title]
+			orderJ := qualityOrder[qualityOptions[j].Title]
+			return orderI < orderJ
+		})
+
+		// Update result with quality options
+		if len(qualityOptions) > 0 {
+			result.Data.Server.Qualities = qualityOptions
+			fmt.Printf("[Stream] ✅ Added %d quality options from Oploverz\n", len(qualityOptions))
+		}
+	} else {
+		fmt.Printf("[Stream] ⚠️ Oploverz unavailable for %s: %v\n", episodeId, oploverzErr)
+		// Continue without Oploverz - Otakudesu stream still available
+	}
+
+	// Step 3: Update Server 1 title to indicate Otakudesu
+	// Rename existing qualities to "Server 1 - Otakudesu"
+	// This step is only relevant if Oploverz did NOT overwrite the qualities.
+	// If Oploverz successfully provided streams, result.Data.Server.Qualities would have been replaced.
+	// If Oploverz failed, the original Otakudesu qualities remain, and this update applies.
+	if oploverzErr != nil && len(result.Data.Server.Qualities) > 0 {
+		for i := range result.Data.Server.Qualities {
+			// Only update the first quality (Otakudesu)
+			if i == 0 {
+				result.Data.Server.Qualities[i].Title = fmt.Sprintf("Server 1 - Otakudesu (Sub Indo) - %s", result.Data.Server.Qualities[i].Title)
+				break
+			}
+		}
 	}
 
 	return &result, nil
