@@ -106,17 +106,19 @@ func (s *OploverzService) GetEpisodeStream(otakudesuSlug string) (map[string]str
 	}
 
 	// Add streams as additional options
-	// Add streams as additional options
-	for i, stream := range apiResp.Streams {
-		// Use Name if available, otherwise fallback to generic
-		streamKey := stream.Name
-		if streamKey == "" {
-			streamKey = fmt.Sprintf("Stream %d", i+1)
-		}
-		qualityMap[streamKey] = stream.URL
-	}
+	// Add streams as additional options - REMOVED AS REQUESTED
+	// for i, stream := range apiResp.Streams {
+	// 	// Use Name if available, otherwise fallback to generic
+	// 	streamKey := stream.Name
+	// 	if streamKey == "" {
+	// 		streamKey = fmt.Sprintf("Stream %d", i+1)
+	// 	}
+	// 	qualityMap[streamKey] = stream.URL
+	// }
 
-	// Use first stream as default if available
+	// Use first stream as default if available (still useful for internal default, but won't be in map)
+	// Actually, if we don't add them to map, they won't appear.
+	// For default key:
 	if len(apiResp.Streams) > 0 {
 		qualityMap["default"] = apiResp.Streams[0].URL
 	} else if len(apiResp.Downloads) > 0 {
