@@ -50,8 +50,16 @@ export default function WatchContainer({ sources, qualities = [], info, nav, epi
 
   const handleQualitySelect = (qualityTitle: string) => {
     setSelectedQuality(qualityTitle);
-    setSelectedQualityServer(''); // Reset server when quality changes
-    setActiveServer(''); // Clear main server selection
+    
+    // Auto-select server if there's only one
+    const quality = qualities.find(q => q.title === qualityTitle);
+    if (quality && quality.serverList.length === 1) {
+       const server = quality.serverList[0];
+       handleQualityServerSelect(server, qualityTitle);
+    } else {
+       setSelectedQualityServer(''); // Reset server when quality changes if multiple options
+       setActiveServer(''); // Clear main server selection
+    }
   };
 
   const handleQualityServerSelect = (server: StreamServer, qualityTitle: string) => {
@@ -151,23 +159,38 @@ export default function WatchContainer({ sources, qualities = [], info, nav, epi
                 {/* Server Options for Selected Quality */}
                 {selectedQuality && (
                    <div className="flex flex-wrap gap-2 items-center pl-8">
-                      <span className="text-zinc-600 text-xs">Pilih server:</span>
-                      {qualities
-                        .find(q => q.title === selectedQuality)
-                        ?.serverList.map((server, idx) => (
-                           <button
-                              key={idx}
-                              onClick={() => handleQualityServerSelect(server, selectedQuality)}
-                              className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                                 selectedQualityServer === server.serverId
-                                   ? 'bg-red-600 text-white'
-                                   : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600 hover:text-white'
-                              }`}
-                           >
-                              {server.title}
-                           </button>
-                        ))
-                      }
+                      {(() => {
+                        const quality = qualities.find(q => q.title === selectedQuality);
+                        // Hide label and allow direct play if only 1 server (handled in logic), 
+                        // but specifically request was to hide text if redundant.
+                        // Logic: If length > 1, show buttons. If length == 1, buttons might be redundant if auto-played, 
+                        // but keeping button visible as indicator is good, just hiding "Pilih server".
+                        // Actually, if we auto-play, we don't strictly *need* to show the server buttons unless user wants to switch (if multiple).
+                        // If only 1, it's auto-selected. Let's just hide the section entirely if only 1 server? 
+                        // Or hide the label "Pilih Server"? 
+                        // User said: "Sembunyikan baris 'Pilih server' jika servernya cuma satu."
+                        
+                        if (!quality || quality.serverList.length <= 1) return null;
+
+                        return (
+                           <>
+                             <span className="text-zinc-600 text-xs">Select Server:</span>
+                             {quality.serverList.map((server, idx) => (
+                                <button
+                                   key={idx}
+                                   onClick={() => handleQualityServerSelect(server, selectedQuality)}
+                                   className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                      selectedQualityServer === server.serverId
+                                        ? 'bg-red-600 text-white'
+                                        : 'bg-zinc-700 text-zinc-300 hover:bg-zinc-600 hover:text-white'
+                                   }`}
+                                >
+                                   {server.title}
+                                </button>
+                             ))}
+                           </>
+                        );
+                      })()}
                    </div>
                 )}
              </div>
