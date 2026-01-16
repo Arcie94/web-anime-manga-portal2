@@ -154,6 +154,22 @@ func (s *SankavollereiService) GetOngoingAnime(page int) (*models.SearchResponse
 	return &result, nil
 }
 
+// SearchAnime searches for anime by keyword
+func (s *SankavollereiService) SearchAnime(query string) (*models.SearchResponse, error) {
+	var result models.SearchResponse
+
+	// Otakudesu API usually uses /search/keyword
+	endpoint := fmt.Sprintf("search/%s", query)
+
+	err := s.makeRequestWithCache(endpoint, &result, 30*time.Minute)
+	if err != nil {
+		return nil, fmt.Errorf("failed to search anime: %w", err)
+	}
+
+	result.Data.AnimeList = s.enrichAnimeWithGemini(result.Data.AnimeList)
+	return &result, nil
+}
+
 // GetCompleteAnime fetches the list of completed anime from specific page
 func (s *SankavollereiService) GetCompleteAnime(page int) (*models.SearchResponse, error) {
 	var result models.SearchResponse
@@ -233,8 +249,9 @@ func (s *SankavollereiService) GetEpisodeStream(episodeId string) (*models.Strea
 	}
 
 	// Step 2: Try to get Oploverz streams for quality selector
+	fmt.Printf("[Sankavollerei] Got Otakudesu title: '%s'\n", result.Data.Title)
 	oploverzService := NewOploverzService()
-	oploverzStreams, oploverzErr := oploverzService.GetEpisodeStream(episodeId)
+	oploverzStreams, oploverzErr := oploverzService.GetEpisodeStream(episodeId, result.Data.Title)
 
 	if oploverzErr == nil && len(oploverzStreams) > 0 {
 		// Successfully got Oploverz streams, add as quality options

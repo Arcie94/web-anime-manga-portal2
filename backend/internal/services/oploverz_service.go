@@ -49,72 +49,70 @@ func NewOploverzService() *OploverzService {
 	}
 }
 
-// GetEpisodeStream fetches streaming URLs for an anime episode from Oploverz API
-func (s *OploverzService) GetEpisodeStream(otakudesuSlug string) (map[string]string, error) {
-	// Convert Otakudesu slug to Oploverz format
-	oploverzSlug := s.convertSlugToOploverz(otakudesuSlug)
+// GetEpisodeStream fetches episode streams from Oploverz API
+// Returns map of Quality -> URL (e.g., "1080p": "https://...")
+func (s *OploverzService) GetEpisodeStream(otakudesuSlug string, otakudesuTitle string) (map[string]string, error) {
+	// 1. Convert Otakudesu slug/title to Oploverz slug
+	oploverzSlug := s.convertSlugToOploverz(otakudesuSlug, otakudesuTitle)
 
-	// Build API URL
-	apiURL := fmt.Sprintf("%s/anime/oploverz/episode/%s", s.BaseURL, oploverzSlug)
-	fmt.Printf("[Oploverz] Fetching: %s\n", apiURL)
+	fmt.Printf("[Oploverz] Converted '%s' -> '%s'\n", otakudesuSlug, oploverzSlug)
 
-	// Create request
-	req, err := http.NewRequest("GET", apiURL, nil)
+	// 2. Fetch data from Oploverz
+	// URL: https://www.sankavollerei.com/anime/oploverz/episode/{slug}
+	endpoint := fmt.Sprintf("%s/anime/oploverz/episode/%s", s.BaseURL, oploverzSlug)
+
+	req, err := http.NewRequest("GET", endpoint, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
+		return nil, err
 	}
+
+	// Add User-Agent to mimic browser (critical for Oploverz/Cloudflare)
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
-	// Make HTTP request
-	resp, err := s.HTTPClient.Do(req)
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("failed to fetch Oploverz episode: %w", err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	// Check status code
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Oploverz API returned status %d", resp.StatusCode)
+		return nil, fmt.Errorf("Oploverz API error: status=%s", resp.Status)
 	}
 
-	// Parse JSON response
+	// 3. Parse Response
 	var apiResp OploverzEpisodeResponse
 	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
-		return nil, fmt.Errorf("failed to parse Oploverz response: %w", err)
+		return nil, fmt.Errorf("failed to decode Oploverz response: %w", err)
 	}
 
-	// Check if API call was successful
-	if apiResp.Status != "success" {
-		// Log what we got
-		return nil, fmt.Errorf("Oploverz API error: status='%s' (struct=%+v)", apiResp.Status, apiResp)
-	}
-
-	// Build quality map from downloads
-	// Group by resolution and use first URL for each quality
+	// 4. Extract Qualities
 	qualityMap := make(map[string]string)
 
-	// Process downloads - group by resolution
-	for _, download := range apiResp.Downloads {
-		resolution := strings.ToLower(strings.TrimSpace(download.Resolution))
-
-		// Only store first URL for each resolution (avoid duplicates)
-		if _, exists := qualityMap[resolution]; !exists {
-			// Convert download URL to player/embed URL for better playback
-			embedURL := s.convertToEmbedURL(download.URL)
-			qualityMap[resolution] = embedURL
+	// Helper to add quality if not exists
+	addQuality := func(resolution, url string) {
+		if url == "" {
+			return
 		}
+
+		// If explicit iframe/embed URL, use it
+		// Otherwise, convert Acefile download URLs to embeds
+		finalURL := s.convertToEmbedURL(url)
+
+		// Normalize resolution key (remove 'Op ' prefix etc if needed)
+		qualityMap[resolution] = finalURL
 	}
 
-	// Add streams as additional options
-	// Add streams as additional options - REMOVED AS REQUESTED
-	// for i, stream := range apiResp.Streams {
-	// 	// Use Name if available, otherwise fallback to generic
-	// 	streamKey := stream.Name
-	// 	if streamKey == "" {
-	// 		streamKey = fmt.Sprintf("Stream %d", i+1)
-	// 	}
-	// 	qualityMap[streamKey] = stream.URL
-	// }
+	// Iterate through Downloads to find streaming links
+	for _, dl := range apiResp.Downloads {
+		// Use Name to check provider (e.g. "Acefile", "Akira", "FileDon")
+		label := strings.ToLower(dl.Name)
+
+		// If it's a provider we like for streaming
+		if strings.Contains(label, "acefile") || strings.Contains(label, "filedon") || strings.Contains(label, "akirabox") {
+			addQuality(dl.Resolution, dl.URL)
+		}
+	}
 
 	// Use first stream as default if available (still useful for internal default, but won't be in map)
 	// Actually, if we don't add them to map, they won't appear.
@@ -126,55 +124,35 @@ func (s *OploverzService) GetEpisodeStream(otakudesuSlug string) (map[string]str
 		qualityMap["default"] = apiResp.Downloads[0].URL
 	}
 
-	fmt.Printf("[Oploverz] ✅ Found %d quality options for %s\n", len(qualityMap), oploverzSlug)
 	return qualityMap, nil
 }
 
-// convertToEmbedURL converts download URLs to embed/player URLs for direct playback
-// Example: https://acefile.co/f/110881619/... -> https://acefile.co/player/110881619
-func (s *OploverzService) convertToEmbedURL(downloadURL string) string {
-	// Handle acefile.co URLs - convert from download to player
-	if strings.Contains(downloadURL, "acefile.co/f/") {
-		// Extract file ID using regex: acefile.co/f/110881619/filename
-		re := regexp.MustCompile(`acefile\.co/f/(\d+)`)
-		matches := re.FindStringSubmatch(downloadURL)
-		if len(matches) > 1 {
-			fileID := matches[1]
-			playerURL := fmt.Sprintf("https://acefile.co/player/%s", fileID)
-			fmt.Printf("[Oploverz] 🔄 Converted acefile URL: %s -> %s\n", downloadURL, playerURL)
-			return playerURL
-		}
+// convertToEmbedURL transforms download URLs to player embed URLs
+func (s *OploverzService) convertToEmbedURL(url string) string {
+	// Acefile: https://acefile.co/f/110881619 -> https://acefile.co/player/110881619
+	if strings.Contains(url, "acefile.co/f/") {
+		return strings.Replace(url, "/f/", "/player/", 1)
 	}
+	// Akirabox: https://akirabox.to/f/xxxxx -> https://akirabox.to/embed/xxxxx
+	// (Note: verify akirabox format, assuming /embed/ based on typical patterns, or just leave as is if unsure)
 
-	// Handle filedon.co URLs - already player-ready, just ensure proper format
-	if strings.Contains(downloadURL, "filedon.co/view/") {
-		return downloadURL // These are already embed URLs
-	}
+	// Filedon: https://filedon.co/f/xxxxx -> https://filedon.co/view/xxxxx (hypothetical, need verification)
+	// Actually filedon usually works with /v/ or /view/ or just /f/ might be download only.
+	// For now, let's treat acefile as the primary target.
 
-	// Handle akirabox.to URLs - convert to embed format if needed
-	if strings.Contains(downloadURL, "akirabox.to/") {
-		// Extract file ID from URL
-		re := regexp.MustCompile(`akirabox\.to/([^/]+)`)
-		matches := re.FindStringSubmatch(downloadURL)
-		if len(matches) > 1 && !strings.Contains(downloadURL, "/embed/") {
-			fileID := matches[1]
-			embedURL := fmt.Sprintf("https://akirabox.to/embed/%s", fileID)
-			fmt.Printf("[Oploverz] 🔄 Converted akirabox URL: %s -> %s\n", downloadURL, embedURL)
-			return embedURL
-		}
-	}
-
-	// For buzzheavier and other URLs, return as-is (may need iframe handling)
-	return downloadURL
+	return url
 }
 
-// convertSlugToOploverz converts Otakudesu slug format to Oploverz format
-func (s *OploverzService) convertSlugToOploverz(otakudesuSlug string) string {
-	// Extract anime title and episode number using regex
-	re := regexp.MustCompile(`^(.+?)-episode-(\d+)`)
+// convertSlugToOploverz attempts to convert Otakudesu slug/title to Oploverz format
+func (s *OploverzService) convertSlugToOploverz(otakudesuSlug string, otakudesuTitle string) string {
+	// Regex to extract anime slug and episode number
+	// Otakudesu format: {anime-slug}-episode-{num}-subtitle-indonesia
+	// Example: "wpoiec-episode-1155-sub-indo" -> anime: "wpoiec", num: "1155"
+
+	re := regexp.MustCompile(`^(.*?)-episode-(\d+)(?:-.*)?$`)
 	matches := re.FindStringSubmatch(otakudesuSlug)
 
-	if len(matches) != 3 {
+	if len(matches) < 3 {
 		// Fallback: return as-is if parsing fails
 		return otakudesuSlug
 	}
@@ -182,12 +160,39 @@ func (s *OploverzService) convertSlugToOploverz(otakudesuSlug string) string {
 	animeSlug := matches[1]  // e.g., "wpoiec"
 	episodeNum := matches[2] // e.g., "1155"
 
-	// Map common Otakudesu abbreviations to full titles
-	fullTitle := s.mapSlugToFullTitle(animeSlug)
+	// 1. Try Map lookup first (Manual override for weird slugs like 'wpoiec')
+	mappedTitle := s.mapSlugToFullTitle(animeSlug)
+	if mappedTitle != "" {
+		return fmt.Sprintf("%s-episode-%s-subtitle-indonesia", mappedTitle, episodeNum)
+	}
 
-	// Build Oploverz slug format
-	oploverzSlug := fmt.Sprintf("%s-episode-%s-subtitle-indonesia", fullTitle, episodeNum)
-	return oploverzSlug
+	// 2. Dynamic Fallback: Use Title if available
+	// Otakudesu Title: "One Piece Episode 1155 Subtitle Indonesia"
+	if otakudesuTitle != "" {
+		// Clean title: Remove "Episode ...", "Subtitle Indonesia"
+		cleanTitle := strings.ToLower(otakudesuTitle)
+
+		// Remove "subtitle indonesia" or "sub indo"
+		cleanTitle = strings.ReplaceAll(cleanTitle, "subtitle indonesia", "")
+		cleanTitle = strings.ReplaceAll(cleanTitle, "sub indo", "")
+
+		// Remove Episode/Ep/Eps + Number
+		reEp := regexp.MustCompile(`(episode|ep|eps)\s*\d+.*`)
+		cleanTitle = reEp.ReplaceAllString(cleanTitle, "")
+
+		cleanTitle = strings.TrimSpace(cleanTitle)
+
+		// Replace non-alphanumeric with hyphens
+		reg, _ := regexp.Compile(`[^a-z0-9]+`)
+		dynamicSlug := reg.ReplaceAllString(cleanTitle, "-")
+		dynamicSlug = strings.Trim(dynamicSlug, "-")
+
+		fmt.Printf("[Oploverz] Dynamic slug generated: '%s' from title '%s'\n", dynamicSlug, otakudesuTitle)
+		return fmt.Sprintf("%s-episode-%s-subtitle-indonesia", dynamicSlug, episodeNum)
+	}
+
+	// 3. Last Resort: Use the Otakudesu anime slug as-is (unlikely to work for weird ones)
+	return fmt.Sprintf("%s-episode-%s-subtitle-indonesia", animeSlug, episodeNum)
 }
 
 // mapSlugToFullTitle maps common Otakudesu anime slugs to full readable titles for Oploverz
@@ -209,6 +214,8 @@ func (s *OploverzService) mapSlugToFullTitle(slug string) string {
 		"windbreaker":     "wind-breaker",
 		"mushoku-tensei":  "mushoku-tensei",
 		"solo-leveling":   "solo-leveling",
+		"kaijuu-8-gou":    "kaijuu-8-gou",
+		"dandadan":        "dandadan",
 		"overlord":        "overlord",
 		"re-zero":         "re-zero",
 		"konosuba":        "konosuba",
