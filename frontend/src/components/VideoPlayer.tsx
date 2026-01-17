@@ -41,11 +41,17 @@ export default function VideoPlayer({ src, poster, title }: VideoPlayerProps) {
             <div className="absolute inset-0">
                 {/* Fallback to Iframe for Embed URLs */}
                 {/* Oploverz player URLs (acefile, filedon, akirabox) need iframe */}
-                {(src.includes('.php') || 
+                {/* Oploverz player URLs (acefile, filedon, akirabox) need iframe */
+                /* Also support standard Otakudesu .php streams */
+                (src.includes('.php') || 
                   src.includes('/anime/server/') ||
-                  src.includes('acefile.co/player/') ||
-                  src.includes('filedon.co/view/') ||
-                  src.includes('akirabox.to/embed/')) ? (
+                  src.includes('acefile.co') ||
+                  src.includes('filedon.co') ||
+                  src.includes('akirabox') ||
+                  src.includes('gdplayer.to') ||
+                  src.includes('anime-indo.lol') ||
+                  src.includes('my.mail.ru') ||
+                  src.includes('sankavollerei.com')) ? (
                     <iframe 
                         src={src} 
                         className="w-full h-full border-0" 

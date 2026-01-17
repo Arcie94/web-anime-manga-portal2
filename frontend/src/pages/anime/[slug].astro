@@ -12,10 +12,42 @@ let error = "";
 
 if (slug) {
   try {
-    const res = await apiFetch<{ data: any }>(`/anime/${slug}`);
-    anime = res.data;
+    // Try Anime Indo API first for cleaner slugs
+    // Clean slug from "-episode-X" to get parent anime slug (Fix for empty episode list on episode URLs)
+    const cleanSlug = slug?.split("-episode-")[0] || slug;
+
+    const animeIndoRes = await apiFetch<{ data: any }>(
+      `/anime/detail-indo/${cleanSlug}`,
+    );
+    if (animeIndoRes && animeIndoRes.data) {
+      const data = animeIndoRes.data;
+      // Transform Anime Indo format to match existing format
+      anime = {
+        title: data.title,
+        synopsis: data.synopsis,
+        image: data.poster,
+        genre: data.genres?.join(", ") || "",
+        episodeList:
+          data.episodes
+            ?.map((ep: any) => ({
+              episodeId: ep.eps_slug,
+              slug: ep.eps_slug,
+              eps: ep.eps_title?.match(/Episode\s+(\d+)/)?.[1] || "",
+            }))
+            .reverse() || [], // Reverse to show newest episodes first
+        totalEpisodes: data.episodes?.length || 0,
+        status: "Available",
+        type: "TV Series",
+      };
+    }
   } catch (e) {
-    error = "Gagal memuat detail anime.";
+    // Fallback to Otakudesu/Sankavollerei if Anime Indo fails
+    try {
+      const res = await apiFetch<{ data: any }>(`/anime/${slug}`);
+      anime = res.data;
+    } catch (fallbackError) {
+      error = "Gagal memuat detail anime.";
+    }
   }
 }
 
@@ -29,7 +61,7 @@ const firstEpisode = anime.episodeList?.[anime.episodeList.length - 1];
 
 <Layout title={`${anime.title} - AnimePlay`} hideHeader={true}>
   <!-- Back Button -->
-  <div class="fixed top-4 left-4 z-50">
+  <div class="fixed top-4 left-4 z-[100]">
     <button
       onclick="history.length > 1 ? history.back() : window.location.href = '/'"
       class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white border border-white/10 transition-all hover:scale-110 active:scale-95 backdrop-blur-sm"

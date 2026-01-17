@@ -248,16 +248,16 @@ func (s *SankavollereiService) GetEpisodeStream(episodeId string) (*models.Strea
 		return nil, fmt.Errorf("failed to get episode stream: %w", err)
 	}
 
-	// Step 2: Try to get Oploverz streams for quality selector
+	// Step 2: Try to get Anime Indo streams for quality selector
 	fmt.Printf("[Sankavollerei] Got Otakudesu title: '%s'\n", result.Data.Title)
-	oploverzService := NewOploverzService()
-	oploverzStreams, oploverzErr := oploverzService.GetEpisodeStream(episodeId, result.Data.Title)
+	animeIndoService := NewAnimeIndoService()
+	animeIndoStreams, animeIndoErr := animeIndoService.GetEpisodeStream(episodeId, result.Data.Title)
 
-	if oploverzErr == nil && len(oploverzStreams) > 0 {
-		// Successfully got Oploverz streams, add as quality options
-		fmt.Printf("[Stream] ✅ Oploverz qualities available for %s\n", episodeId)
+	if animeIndoErr == nil && len(animeIndoStreams) > 0 {
+		// Successfully got Anime Indo streams, add as server options
+		fmt.Printf("[Stream] ✅ Anime Indo servers available for %s\n", episodeId)
 
-		// Build quality options from Oploverz response
+		// Build server options from Anime Indo response
 		qualityOptions := []models.QualityOption{}
 
 		// Map of quality order for sorting
@@ -269,23 +269,22 @@ func (s *SankavollereiService) GetEpisodeStream(episodeId string) (*models.Strea
 		}
 
 		// Group streams by quality
-		for quality, url := range oploverzStreams {
-			if quality == "default" {
-				continue // Skip default, we'll use specific qualities
+		for serverName, url := range animeIndoStreams {
+			if serverName == "default" {
+				continue // Skip default
 			}
 
-			// Create server entry for this quality
-			// Oploverz typically provides multiple mirrors per quality
+			// Create server entry
 			serverList := []models.StreamServer{
 				{
-					Title:    "Oploverz",
-					ServerID: fmt.Sprintf("oploverz_%s", quality),
+					Title:    serverName,
+					ServerID: fmt.Sprintf("animeindo_%s", serverName),
 					Href:     url,
 				},
 			}
 
 			qualityOptions = append(qualityOptions, models.QualityOption{
-				Title:      quality,
+				Title:      serverName,
 				ServerList: serverList,
 			})
 		}
@@ -300,19 +299,19 @@ func (s *SankavollereiService) GetEpisodeStream(episodeId string) (*models.Strea
 		// Update result with quality options
 		if len(qualityOptions) > 0 {
 			result.Data.Server.Qualities = qualityOptions
-			fmt.Printf("[Stream] ✅ Added %d quality options from Oploverz\n", len(qualityOptions))
+			fmt.Printf("[Stream] ✅ Added %d server options from Anime Indo\n", len(qualityOptions))
 		}
 	} else {
-		fmt.Printf("[Stream] ⚠️ Oploverz unavailable for %s: %v\n", episodeId, oploverzErr)
-		// Continue without Oploverz - Otakudesu stream still available
+		fmt.Printf("[Stream] ⚠️ Anime Indo unavailable for %s: %v\n", episodeId, animeIndoErr)
+		// Continue without Anime Indo - Otakudesu stream still available
 	}
 
 	// Step 3: Update Server 1 title to indicate Otakudesu
 	// Rename existing qualities to "Server 1 - Otakudesu"
-	// This step is only relevant if Oploverz did NOT overwrite the qualities.
-	// If Oploverz successfully provided streams, result.Data.Server.Qualities would have been replaced.
-	// If Oploverz failed, the original Otakudesu qualities remain, and this update applies.
-	if oploverzErr != nil && len(result.Data.Server.Qualities) > 0 {
+	// This step is only relevant if Anime Indo did NOT overwrite the qualities.
+	// If Anime Indo successfully provided streams, result.Data.Server.Qualities would have been replaced.
+	// If Anime Indo failed, the original Otakudesu qualities remain, and this update applies.
+	if animeIndoErr != nil && len(result.Data.Server.Qualities) > 0 {
 		for i := range result.Data.Server.Qualities {
 			// Only update the first quality (Otakudesu)
 			if i == 0 {

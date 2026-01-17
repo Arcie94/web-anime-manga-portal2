@@ -25,33 +25,54 @@ if (slug) {
 
     // 2. Fetch Anime Details for context (Next/Prev)
     if (animeSlug) {
+      // Try Anime Indo API first for clean slugs
+      let detailRes;
       try {
-        const detailRes = await apiFetch<{ data: any }>(`/anime/${animeSlug}`);
-        if (detailRes.data) {
-          animeDetail = detailRes.data;
-
-          // Populate clean list
-          cleanEpisodeList =
-            animeDetail?.episodeList?.map((ep: any) => ({
-              title: ep.title,
-              eps: ep.eps,
-              slug: ep.slug,
-              episodeId: ep.episodeId,
-            })) || [];
-
-          console.log(
-            "[DEBUG] WatchPage: Anime Detail Found:",
-            animeDetail.title
-          );
-          console.log(
-            "[DEBUG] WatchPage: Episode List Length:",
-            animeDetail.episodeList?.length
-          );
-        } else {
-          console.log("[DEBUG] WatchPage: Detail Fetch Failed or No Data");
-        }
+        detailRes = await apiFetch<{ data: any }>(
+          `/anime/detail-indo/${animeSlug}`,
+        );
       } catch (e) {
-        console.error("[DEBUG] WatchPage: Error fetching detail:", e);
+        // Fallback to legacy Otakudesu endpoint
+        try {
+          detailRes = await apiFetch<{ data: any }>(`/anime/${animeSlug}`);
+        } catch (fallbackErr) {
+          console.error(
+            "[DEBUG] WatchPage: Both detail fetch attempts failed:",
+            fallbackErr,
+          );
+        }
+      }
+
+      if (detailRes && detailRes.data) {
+        animeDetail = detailRes.data;
+
+        // Transform episodes if from Anime Indo format
+        cleanEpisodeList =
+          animeDetail?.episodeList?.map((ep: any) => ({
+            title: ep.title || `Episode ${ep.eps || ep.episodeId}`,
+            eps: ep.eps,
+            slug: ep.slug || ep.episodeId,
+            episodeId: ep.episodeId || ep.slug,
+          })) ||
+          animeDetail?.episodes?.map((ep: any) => ({
+            title: ep.eps_title || `Episode ${ep.eps_slug}`,
+            eps: ep.eps_title?.match(/Episode\s+(\d+)/)?.[1] || "",
+            slug: ep.eps_slug,
+            episodeId: ep.eps_slug,
+          })) ||
+          [];
+
+        // Reverse to show Newest First (Descending)
+        // API usually returns Oldest First [1, 2, ... 1000]
+        // We want [1000, 999, ... 1]
+        cleanEpisodeList.reverse();
+
+        console.log(
+          "[DEBUG] WatchPage: Episode List Length:",
+          cleanEpisodeList.length,
+        );
+      } else {
+        console.log("[DEBUG] WatchPage: Detail Fetch Failed or No Data");
       }
     }
   } catch (e: any) {
@@ -65,11 +86,20 @@ if (!streamData && !error) {
 }
 
 // Prepare Props for WatchContainer
-const sources = {
-  default: streamData?.defaultStreamingUrl || "",
-  backup: streamData?.stream_link || "",
-  direct: streamData?.url || "",
-};
+// Handle both old format and new Anime Indo format
+let sources: Record<string, string> = {};
+
+if (streamData?.stream_link && typeof streamData.stream_link === "object") {
+  // New Anime Indo format: stream_link is already an object with server names
+  sources = streamData.stream_link;
+} else {
+  // Legacy format: fallback to old structure
+  sources = {
+    default: streamData?.defaultStreamingUrl || "",
+    backup: streamData?.stream_link || "",
+    direct: streamData?.url || "",
+  };
+}
 
 // Extract qualities from API response
 const qualities = streamData?.server?.qualities || [];
@@ -110,7 +140,7 @@ if (animeDetail && animeDetail.episodeList) {
   });
 
   console.log(
-    `[DEBUG] Found Index: ${currentIndex} / Total: ${animeDetail.episodeList.length}`
+    `[DEBUG] Found Index: ${currentIndex} / Total: ${animeDetail.episodeList.length}`,
   );
 
   if (currentIndex !== -1) {

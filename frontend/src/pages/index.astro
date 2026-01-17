@@ -4,48 +4,113 @@ import HeroCarousel from "../components/HeroCarousel";
 import ContentRow from "../components/ContentRow";
 import CategoryRow from "../components/CategoryRow";
 import { apiFetch } from "../lib/api";
-import { FEATURED_ANIME } from "../data/featuredAnime";
 
 export const prerender = false;
 
-// Fetch homepage data from Sankavollerei API
+// === Fetch from new Anime Indo API ===
+let popularAnime: any[] = [];
+let latestEpisodes: any[] = [];
+
+try {
+  // Get popular anime for Hero Carousel
+  const popularResponse = await apiFetch<{ data: any[] }>("/anime/popular");
+  if (popularResponse && popularResponse.data) {
+    popularAnime = popularResponse.data;
+  }
+} catch (error) {
+  console.error("Failed to fetch popular anime:", error);
+}
+
+try {
+  // Get latest episodes
+  const latestResponse = await apiFetch<{ data: any[] }>(
+    "/anime/latest?page=1",
+  );
+  if (latestResponse && latestResponse.data) {
+    latestEpisodes = latestResponse.data;
+  }
+} catch (error) {
+  console.error("Failed to fetch latest episodes:", error);
+}
+
+// === Legacy: Fallback to Otakudesu/Sankavollerei if Anime Indo fails ===
 let ongoingAnime: any[] = [];
 let completedAnime: any[] = [];
 
-try {
-  const homeData = await apiFetch<{
-    data: { ongoing: any[]; completed: any[] };
-  }>("/anime/home");
+if (popularAnime.length === 0 || latestEpisodes.length === 0) {
+  try {
+    const homeData = await apiFetch<{
+      data: { ongoing: any[]; completed: any[] };
+    }>("/anime/home");
 
-  if (homeData?.data) {
-    ongoingAnime = homeData.data.ongoing || [];
-    completedAnime = homeData.data.completed || [];
+    if (homeData?.data) {
+      ongoingAnime = homeData.data.ongoing || [];
+      completedAnime = homeData.data.completed || [];
+
+      // Use ongoing as fallback for popular if needed
+      if (popularAnime.length === 0) {
+        popularAnime = ongoingAnime.slice(0, 10);
+      }
+    }
+  } catch (error) {
+    console.error("Failed to fetch home data (fallback):", error);
   }
-} catch (error) {
-  console.error("Failed to fetch home data:", error);
 }
+
+// Transform popular anime for carousel format
+const featuredAnime = popularAnime.slice(0, 10).map((anime: any) => ({
+  id: anime.slug || anime.id,
+  title: anime.title,
+  slug: anime.slug,
+  image: anime.poster || anime.image,
+  poster: anime.poster || anime.image,
+  description: anime.synopsis || "Watch this amazing anime series!",
+  genres: anime.genres || [],
+  rating: "N/A",
+  year: new Date().getFullYear().toString(),
+  type: "anime" as "anime" | "manga",
+}));
 ---
 
-<Layout title="AnimePlay - Watch TV Shows Online, Watch Movies Online">
-  {/* Hero Carousel */}
+<Layout
+  title="AnimePlay - Watch TV Shows Online, Watch Movies Online"
+  solidHeader={true}
+>
+  {/* Hero Carousel - Using Popular Anime from Anime Indo */}
   <div class="relative z-0">
-    <HeroCarousel featured={FEATURED_ANIME} client:only="react" />
+    <HeroCarousel featured={featuredAnime} client:only="react" />
   </div>
 
   {/* Sub-Header Categories */}
   <CategoryRow client:visible />
 
-  {/* Content Rows - Using server-fetched data passed as props */}
-  <ContentRow
-    title="Trending Anime"
-    endpoint="/anime/complete"
-    dataKey="animeList"
-    type="anime"
-    client:load
-  />
-
+  {/* Latest Episodes Section - NEW from Anime Indo */}
   {
-    ongoingAnime.length > 0 && (
+    latestEpisodes.length > 0 && (
+      <ContentRow
+        title="Latest Episodes"
+        items={latestEpisodes}
+        type="anime"
+        client:load
+      />
+    )
+  }
+
+  {/* Popular Anime Section - NEW from Anime Indo */}
+  {
+    popularAnime.length > 0 && (
+      <ContentRow
+        title="Popular Anime"
+        items={popularAnime}
+        type="anime"
+        client:load
+      />
+    )
+  }
+
+  {/* Legacy: Ongoing Anime (Fallback) */}
+  {
+    ongoingAnime.length > 0 && latestEpisodes.length === 0 && (
       <ContentRow
         title="Ongoing Anime"
         items={ongoingAnime}
@@ -55,7 +120,16 @@ try {
     )
   }
 
-  {/* Genre Sections */}
+  {/* Trending Anime - Keep existing endpoint */}
+  <ContentRow
+    title="Trending Anime"
+    endpoint="/anime/complete"
+    dataKey="animeList"
+    type="anime"
+    client:load
+  />
+
+  {/* Genre Sections - Keep existing */}
   <ContentRow
     title="Action Anime"
     endpoint="/anime/genres/Action"

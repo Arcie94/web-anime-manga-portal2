@@ -41,7 +41,7 @@ export default function HeroBillboard({ item }: HeroProps) {
             </div>
 
             {/* Content Container */}
-            <div className="relative z-10 w-full h-full container mx-auto px-4 md:px-12 flex items-center pt-16 md:pt-0">
+            <div className="relative z-10 w-full h-full container mx-auto px-4 md:px-12 flex items-start md:items-center pt-28 md:pt-0">
                 <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 w-full">
                     
                     {/* Poster - Enhanced size for mobile prominence */}

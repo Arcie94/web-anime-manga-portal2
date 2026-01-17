@@ -12,11 +12,19 @@ func SetupRoutes(app *fiber.App) {
 	animeController := controllers.NewAnimeController()
 
 	anime := api.Group("/anime")
-	anime.Get("/home", animeController.GetHome) // NEW: Home endpoint
+
+	// === New Anime Indo API Endpoints ===
+	anime.Get("/latest", animeController.GetLatestEpisodes)             // Latest episodes
+	anime.Get("/popular", animeController.GetPopularAnime)              // Popular anime
+	anime.Get("/search-indo", animeController.SearchAnimeIndo)          // Search (Anime Indo)
+	anime.Get("/detail-indo/:slug", animeController.GetAnimeDetailIndo) // Detail (Anime Indo)
+
+	// === Legacy Otakudesu/Sankavollerei Endpoints (Backward compat) ===
+	anime.Get("/home", animeController.GetHome) // Home endpoint
 	anime.Get("/ongoing", animeController.GetOngoing)
 	anime.Get("/complete", animeController.GetComplete)
 	anime.Get("/search", animeController.Search)
-	anime.Get("/genres/:slug", animeController.GetGenre) // Use plural 'genres' to match service logic but exposed as 'genres' or 'genre'? Let's keeps consistent. Service logic mapped 'genres/%s'. Let's use /genre/:slug for clean API.
+	anime.Get("/genres/:slug", animeController.GetGenre)
 	anime.Get("/genre/:slug", animeController.GetGenre)
 	anime.Get("/:slug", animeController.GetDetail)
 	anime.Get("/episode/:slug", animeController.GetStream)

@@ -10,3 +10,6 @@ warp_data
 tmp
 .vscode
 .idea
+
+backend/anime-backend
+*.exe

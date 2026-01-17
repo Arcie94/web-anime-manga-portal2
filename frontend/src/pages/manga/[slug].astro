@@ -29,7 +29,7 @@ const firstChapter = manga.chapters?.[manga.chapters.length - 1];
 
 <Layout title={`${manga.title || ""} - AnimePlay`} hideHeader={true}>
   <!-- Back Button -->
-  <div class="fixed top-4 left-4 z-50">
+  <div class="fixed top-4 left-4 z-[100]">
     <button
       onclick="history.length > 1 ? history.back() : window.location.href = '/manga'"
       class="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center rounded-full bg-black/50 hover:bg-black/70 text-white border border-white/10 transition-all hover:scale-110 active:scale-95 backdrop-blur-sm"

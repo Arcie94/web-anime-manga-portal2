@@ -12,12 +12,34 @@ interface Props {
 const {
   title,
   hideHeader = false,
+  solidHeader = false, // New prop for solid header mode
   allowZoom = false,
   hideBottomNav = false,
 } = Astro.props;
+
 const pathname = Astro.url.pathname;
+
+// Force hide header on Detail/Watch pages for Anime & Manga
+// BUT keep it visible on the Manga Homepage ("/manga" or "/manga/") AND Main Homepage ("/" or "/anime" or "/anime/")
+const isMangaHome = pathname === "/manga" || pathname === "/manga/";
+const isAnimeHome =
+  pathname === "/" || pathname === "/anime" || pathname === "/anime/";
+const isImmersivePage =
+  (pathname.startsWith("/anime/") || pathname.startsWith("/manga/")) &&
+  !isMangaHome &&
+  !isAnimeHome;
+
+// Strict check to ensure header is hidden when requested OR on immersive pages
+// override: if solidHeader is strictly true, we show header (unless hideHeader is also true)
+const shouldHideHeader = hideHeader === true || (hideHeader as any) === "true";
+
+// Determine header classes based on solidHeader prop
+const headerClasses = solidHeader
+  ? "fixed top-0 left-0 right-0 z-50 bg-black/40 backdrop-blur-xl border-b border-white/5 shadow-lg h-16 md:h-20 flex items-center"
+  : "fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-gradient-to-b from-black/70 to-transparent h-16 md:h-20 flex items-center";
+
 const showLogo =
-  pathname === "/" || pathname === "/manga" || pathname === "/manga/";
+  pathname === "/" || pathname === "/manga" || pathname === "/manga/" || solidHeader;
 ---
 
 <!doctype html>
@@ -32,8 +54,9 @@ const showLogo =
     <link rel="icon" type="image/png" href="/logo.png" />
     <meta name="generator" content={Astro.generator} />
     <title>{title}</title>
+    { !solidHeader && (
     <script>
-      // Header scroll effect
+      // Header scroll effect (Only for transparent headers)
       const header = document.getElementById("main-header");
       window.addEventListener("scroll", () => {
         if (window.scrollY > 10) {
@@ -42,7 +65,7 @@ const showLogo =
             "bg-transparent",
             "bg-gradient-to-b",
             "from-black/70",
-            "to-transparent"
+            "to-transparent",
           );
         } else {
           header?.classList.remove("bg-[#141414]", "shadow-lg");
@@ -50,20 +73,21 @@ const showLogo =
             "bg-transparent",
             "bg-gradient-to-b",
             "from-black/70",
-            "to-transparent"
+            "to-transparent",
           );
         }
       });
     </script>
+    )}
   </head>
   <body
     class="bg-[#141414] text-white min-h-screen flex flex-col overflow-x-hidden"
   >
     {
-      !hideHeader && (
+      !shouldHideHeader && (
         <header
           id="main-header"
-          class="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-gradient-to-b from-black/70 to-transparent h-16 md:h-20 flex items-center"
+          class={headerClasses}
         >
           <nav class="container mx-auto px-4 md:px-12 flex items-center justify-between w-full">
             <div class="flex items-center gap-8">
