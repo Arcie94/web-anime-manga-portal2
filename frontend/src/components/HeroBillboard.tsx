@@ -26,7 +26,7 @@ export default function HeroBillboard({ item }: HeroProps) {
     const posterImage = item.poster || item.cover || item.image; 
 
     return (
-        <div className="relative w-full h-[85vh] min-h-[600px] overflow-hidden group">
+        <div className="relative w-full min-h-[85vh] md:h-[85vh] md:min-h-[600px] overflow-hidden group">
             {/* Blurred Backdrop */}
             <div className="absolute inset-0 w-full h-full">
                 <img 
@@ -41,7 +41,7 @@ export default function HeroBillboard({ item }: HeroProps) {
             </div>
 
             {/* Content Container */}
-            <div className="relative z-10 w-full h-full container mx-auto px-4 md:px-12 flex items-start md:items-center pt-28 md:pt-0">
+            <div className="relative z-10 w-full h-full container mx-auto px-4 md:px-12 flex items-start md:items-center pt-28 md:pt-0 pb-20 md:pb-0">
                 <div className="flex flex-col md:flex-row items-center gap-6 md:gap-8 w-full">
                     
                     {/* Poster - Enhanced size for mobile prominence */}
@@ -82,14 +82,14 @@ export default function HeroBillboard({ item }: HeroProps) {
                         <div className="flex flex-col sm:flex-row items-center justify-center md:justify-start gap-4 pt-4">
                             <a 
                                 href={`/${item.type}/${item.slug}`} 
-                                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-red-600 text-white px-8 py-3.5 rounded-full font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 active:scale-95"
+                                className="w-64 sm:w-auto flex items-center justify-center gap-2 bg-red-600 text-white px-8 py-3.5 rounded-full font-bold hover:bg-red-700 transition-all shadow-lg shadow-red-600/20 active:scale-95"
                             >
                                 {item.type === 'manga' ? <FaBook className="text-sm" /> : <FaPlay className="text-sm" />}
                                 {item.type === 'manga' ? 'Read Now' : 'Watch Now'}
                             </a>
                             <a 
                                 href={`/${item.type}/${item.slug}`} 
-                                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-white/10 backdrop-blur-md text-white border border-white/10 px-8 py-3.5 rounded-full font-bold hover:bg-white/20 transition-all active:scale-95"
+                                className="w-64 sm:w-auto flex items-center justify-center gap-2 bg-white/10 backdrop-blur-md text-white border border-white/10 px-8 py-3.5 rounded-full font-bold hover:bg-white/20 transition-all active:scale-95"
                             >
                                 <FaInfoCircle />
                                 More Info
