@@ -132,7 +132,8 @@ func (s *SankavollereiService) GetMangaHome() (*models.MangaListResponse, error)
 
 	// Use Komikindo Latest for home
 	// The API returns "komikList" instead of "trending"
-	err := s.makeRequestWithCache("comic/komikindo/latest/1", &result, 15*time.Minute)
+	// Reduce cache to 1 minute to ensure fresh content
+	err := s.makeRequestWithCache("comic/komikindo/latest/1", &result, 1*time.Minute)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get manga home data: %w", err)
 	}
