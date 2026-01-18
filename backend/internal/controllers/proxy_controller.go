@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"bufio"
 	"io"
 	"net/http"
 	"net/url"
@@ -88,12 +89,12 @@ func (c *ProxyController) GetImage(ctx *fiber.Ctx) error {
 
 	// Stream the body directly to the client
 	// Fiber's Context.Response().BodyWriter() might be needed for streaming,
-	// or we can just read all and send (simpler for images usually)
-	// But strictly speaking, for proxy, streaming is better to save memory.
+	// but SetBodyStreamWriter expects func(*bufio.Writer)
 
 	// Using io.Copy to Fiber's writer
-	ctx.Context().SetBodyStreamWriter(func(w *fiber.ResponseBodyWriter) {
+	ctx.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
 		io.Copy(w, resp.Body)
+		w.Flush()
 	})
 
 	return nil
