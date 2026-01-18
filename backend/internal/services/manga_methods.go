@@ -324,71 +324,66 @@ func (s *SankavollereiService) GetMangaDetail(slug string) (*models.MangaDetailR
 
 // GetChapterImages fetches images for a manga chapter
 func (s *SankavollereiService) GetChapterImages(chapterId string) (*models.ChapterResponse, error) {
-	var result models.ChapterResponse
+	// Wrapper struct to match upstream API JSON structure
+	var apiResult struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Title      string `json:"title"`
+			Navigation struct {
+				Prev *string `json:"prev"` // Can be null
+				Next *string `json:"next"` // Can be null
+			} `json:"navigation"`
+			MangaSlug string `json:"allChapterSlug"`
+			Images    []struct {
+				ID  int    `json:"id"`
+				URL string `json:"url"`
+			} `json:"images"`
+		} `json:"data"`
+	}
 
 	endpoint := fmt.Sprintf("comic/komikindo/chapter/%s", chapterId)
 	// Cache chapter images for 30 minutes
-	err := s.makeRequestWithCache(endpoint, &result, 30*time.Minute)
+	err := s.makeRequestWithCache(endpoint, &apiResult, 30*time.Minute)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chapter images: %w", err)
 	}
 
-	// Logic to find Next/Prev Slug
-	// 1. Extract Manga Slug from Chapter Slug directly
-	re := regexp.MustCompile(`^(.*)-chapter-.*$`)
-	matches := re.FindStringSubmatch(chapterId)
-	if len(matches) > 1 {
-		mangaSlug := matches[1]
-
-		if result.MangaID == "" {
-			result.MangaID = mangaSlug
-		}
-		if result.ChapterID == "" {
-			result.ChapterID = chapterId
-		}
-
-		// 2. Fetch Manga Details
-		detail, err := s.GetMangaDetail(mangaSlug)
-		if err != nil {
-			// Fallback: Skip navigation if detail fetch fails
-			return &result, nil
-		}
-
-		if detail != nil {
-			reNum := regexp.MustCompile(`-chapter-([\d\.]+)`)
-			numMatches := reNum.FindStringSubmatch(chapterId)
-			var targetNum string
-			if len(numMatches) > 1 {
-				targetNum = numMatches[1]
-			}
-
-			for i, ch := range detail.Chapters {
-				iterSlug := strings.Trim(ch.Slug, "/")
-				cleanID := strings.Trim(chapterId, "/")
-
-				isMatch := false
-				if iterSlug == cleanID {
-					isMatch = true
-				} else if targetNum != "" {
-					if strings.HasSuffix(iterSlug, "-"+targetNum) || strings.Contains(iterSlug, "-chapter-"+targetNum) {
-						isMatch = true
-					}
-				}
-
-				if isMatch {
-					if i > 0 {
-						result.NextSlug = detail.Chapters[i-1].Slug
-					}
-					if i < len(detail.Chapters)-1 {
-						result.PrevSlug = detail.Chapters[i+1].Slug
-					}
-					break
-				}
-			}
+	// Extract just the URLs from the images array
+	var imageUrls []string
+	for _, img := range apiResult.Data.Images {
+		if img.URL != "" {
+			imageUrls = append(imageUrls, img.URL)
 		}
 	}
 
-	return &result, nil
+	// Logic to safely dereference Next/Prev
+	var nextSlug, prevSlug string
+	if apiResult.Data.Navigation.Next != nil {
+		nextSlug = *apiResult.Data.Navigation.Next
+	}
+	if apiResult.Data.Navigation.Prev != nil {
+		prevSlug = *apiResult.Data.Navigation.Prev
+	}
+
+	result := &models.ChapterResponse{
+		Title:     apiResult.Data.Title,
+		ChapterID: chapterId,
+		MangaID:   apiResult.Data.MangaSlug, // Use the explicit parent slug
+		Images:    imageUrls,
+		NextSlug:  nextSlug,
+		PrevSlug:  prevSlug,
+	}
+
+	// If MangaSlug is missing, fallback to regex extraction
+	if result.MangaID == "" {
+		re := regexp.MustCompile(`^(.*)-chapter-.*$`)
+		matches := re.FindStringSubmatch(chapterId)
+		if len(matches) > 1 {
+			result.MangaID = matches[1]
+		}
+	}
+
+	return result, nil
 }
 
 // GetTrendingManga fetches trending manga
