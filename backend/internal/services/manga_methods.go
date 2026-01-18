@@ -314,15 +314,21 @@ func (s *SankavollereiService) GetMangaDetail(slug string) (*models.MangaDetailR
 
 	// Check for API errors (e.g. Ban)
 	if !apiResult.Success && apiResult.Status == "Forbidden" {
-		return nil, fmt.Errorf("upstream API blocked request: %s", apiResult.Message)
+		return nil, fmt.Errorf("upstream API blocked request (Ban): %s", apiResult.Message)
 	}
 
-	// Deduplicate chapters
-	seen := make(map[string]bool)
+	// Deduplicate chapters by Slug AND Title
+	seenSlug := make(map[string]bool)
+	seenTitle := make(map[string]bool)
 	uniqueChapters := make([]models.Chapter, 0, len(apiResult.Data.Chapters))
+
 	for _, ch := range apiResult.Data.Chapters {
-		if !seen[ch.Slug] {
-			seen[ch.Slug] = true
+		// Normalize title for deduplication (e.g. "Chapter 19" vs "chapter 19")
+		normalizedTitle := strings.ToLower(strings.TrimSpace(ch.Title))
+
+		if !seenSlug[ch.Slug] && !seenTitle[normalizedTitle] {
+			seenSlug[ch.Slug] = true
+			seenTitle[normalizedTitle] = true
 			uniqueChapters = append(uniqueChapters, ch)
 		}
 	}
