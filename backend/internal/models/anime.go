@@ -153,11 +153,12 @@ type Manga struct {
 }
 
 type Chapter struct {
-	Title     string `json:"title"`
-	Chapter   string `json:"chapter"` // Display name like "Chapter 123"
-	ChapterID string `json:"chapterId"`
-	Slug      string `json:"slug"`
-	Date      string `json:"date"`
+	Title       string `json:"title"`
+	Chapter     string `json:"chapter"` // Display name like "Chapter 123"
+	ChapterID   string `json:"chapterId"`
+	Slug        string `json:"slug"`
+	Date        string `json:"date"`
+	ReleaseTime string `json:"releaseTime"` // Added for Komikindo
 }
 
 type MangaDetail struct {

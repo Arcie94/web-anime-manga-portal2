@@ -287,18 +287,40 @@ func (s *SankavollereiService) GetCompleteManga(page int) (*models.MangaListResp
 
 // GetMangaDetail fetches detailed information about a manga
 func (s *SankavollereiService) GetMangaDetail(slug string) (*models.MangaDetailResponse, error) {
-	var result models.MangaDetailResponse
+	// Wrapper struct to match upstream API JSON structure
+	var apiResult struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Title    string      `json:"title"`
+			Image    string      `json:"image"`
+			Synopsis interface{} `json:"synopsis"`
+			Metadata struct {
+				Author string `json:"author"`
+				Status string `json:"status"`
+				Type   string `json:"type"`
+			} `json:"metadata"`
+			// Using 'chapter' based on observed potential key, fallback to 'chapters' if needed
+			Chapters []models.Chapter `json:"chapter"`
+		} `json:"data"`
+	}
 
 	endpoint := fmt.Sprintf("comic/komikindo/detail/%s", slug)
 	// Cache manga details for 30 minutes
-	err := s.makeRequestWithCache(endpoint, &result, 30*time.Minute)
+	err := s.makeRequestWithCache(endpoint, &apiResult, 30*time.Minute)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get manga detail: %w", err)
 	}
 
-	result.Image = cleanImageURL(result.Image)
+	// Map to public response model
+	result := &models.MangaDetailResponse{
+		Title:    apiResult.Data.Title,
+		Image:    cleanImageURL(apiResult.Data.Image),
+		Synopsis: apiResult.Data.Synopsis,
+		Metadata: apiResult.Data.Metadata,
+		Chapters: apiResult.Data.Chapters,
+	}
 
-	return &result, nil
+	return result, nil
 }
 
 // GetChapterImages fetches images for a manga chapter
