@@ -77,9 +77,10 @@ func (c *ProxyController) GetImage(ctx *fiber.Ctx) error {
 	if err != nil {
 		return ctx.Status(502).SendString("Failed to fetch image: " + err.Error())
 	}
-	defer resp.Body.Close()
+	// MOVED: defer resp.Body.Close() - Do not close here for streaming
 
 	if resp.StatusCode != 200 {
+		resp.Body.Close() // Close manually on error
 		return ctx.Status(resp.StatusCode).SendString("Upstream server returned error")
 	}
 
@@ -103,6 +104,7 @@ func (c *ProxyController) GetImage(ctx *fiber.Ctx) error {
 
 	// Using io.Copy to Fiber's writer
 	ctx.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
+		defer resp.Body.Close() // Close AFTER streaming is done
 		io.Copy(w, resp.Body)
 		w.Flush()
 	})
