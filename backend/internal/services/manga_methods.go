@@ -293,14 +293,13 @@ func (s *SankavollereiService) GetMangaDetail(slug string) (*models.MangaDetailR
 		Data    struct {
 			Title    string      `json:"title"`
 			Image    string      `json:"image"`
-			Synopsis interface{} `json:"synopsis"`
+			Synopsis interface{} `json:"description"` // Key is 'description'
 			Metadata struct {
 				Author string `json:"author"`
 				Status string `json:"status"`
 				Type   string `json:"type"`
-			} `json:"metadata"`
-			// Using 'chapter' based on observed potential key, fallback to 'chapters' if needed
-			Chapters []models.Chapter `json:"chapter"`
+			} `json:"detail"` // Key is 'detail'
+			Chapters []models.Chapter `json:"chapters"` // Key is 'chapters'
 		} `json:"data"`
 	}
 
