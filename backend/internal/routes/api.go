@@ -50,4 +50,8 @@ func SetupRoutes(app *fiber.App) {
 	bookmarks.Post("/", bookmarkController.AddBookmark)
 	bookmarks.Get("/", bookmarkController.GetBookmarks)
 	bookmarks.Delete("/:id", bookmarkController.RemoveBookmark)
+
+	// === Proxy for Images ===
+	proxyController := controllers.NewProxyController()
+	api.Get("/proxy/image", proxyController.GetImage)
 }

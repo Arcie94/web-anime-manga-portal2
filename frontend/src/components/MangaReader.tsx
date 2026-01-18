@@ -155,7 +155,7 @@ export default function MangaReader({
                         {chapter.images.map((img, idx) => (
                             <img
                                 key={`${chapter.slug}-${idx}`}
-                                src={img}
+                                src={`/api/proxy/image?url=${encodeURIComponent(img)}`}
                                 className="max-w-full mx-auto shadow-lg md:rounded-lg"
                                 loading="lazy"
                                 alt={`${chapter.title} - Page ${idx + 1}`}
