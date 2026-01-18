@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
+	"os"
 	"regexp"
 	"strings"
 	"time"
@@ -104,11 +106,23 @@ type EpisodeStreamResponse struct {
 
 // NewAnimeIndoService creates a new Anime Indo service client
 func NewAnimeIndoService() *AnimeIndoService {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Explicitly set proxy if available
+	if proxyEnv := os.Getenv("HTTP_PROXY"); proxyEnv != "" {
+		proxyURL, err := url.Parse(proxyEnv)
+		if err == nil {
+			client.Transport = &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+			}
+		}
+	}
+
 	return &AnimeIndoService{
-		BaseURL: "https://www.sankavollerei.com",
-		HTTPClient: &http.Client{
-			Timeout: 15 * time.Second,
-		},
+		BaseURL:    "https://www.sankavollerei.com",
+		HTTPClient: client,
 	}
 }
 

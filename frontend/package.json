@@ -22,6 +22,7 @@
     "react-icons": "^5.4.0",
     "piccolore": "^0.1.3",
     "clsx": "^2.1.0",
-    "tinyglobby": "^0.2.10"
+    "tinyglobby": "^0.2.10",
+    "swiper": "^11.0.7"
   }
 }

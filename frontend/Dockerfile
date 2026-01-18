@@ -3,9 +3,10 @@ FROM node:20-slim AS builder
 WORKDIR /app
 
 # Copy package info and install ALL dependencies (including devDeps for building)
+# Copy package info and install ALL dependencies (including devDeps for building)
 COPY package.json ./
 # Do NOT copy package-lock from Windows host to avoid platform mismatch
-RUN npm install
+RUN --mount=type=cache,target=/root/.npm npm install
 
 # Copy source code and build
 COPY . .
@@ -17,7 +18,7 @@ WORKDIR /app
 
 # Install only production deps for runtime
 COPY package.json package-lock.json ./
-RUN npm ci --omit=dev
+RUN --mount=type=cache,target=/root/.npm npm install --omit=dev
 
 # Copy built assets from builder stage
 COPY --from=builder /app/dist ./dist

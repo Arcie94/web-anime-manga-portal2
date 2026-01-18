@@ -2,6 +2,7 @@
 import Layout from "../layouts/Layout.astro";
 import HeroCarousel from "../components/HeroCarousel";
 import ContentRow from "../components/ContentRow";
+import CarouselRow from "../components/CarouselRow";
 import CategoryRow from "../components/CategoryRow";
 import { apiFetch } from "../lib/api";
 
@@ -87,10 +88,11 @@ const featuredAnime = popularAnime.slice(0, 10).map((anime: any) => ({
   {/* Latest Episodes Section - NEW from Anime Indo */}
   {
     latestEpisodes.length > 0 && (
-      <ContentRow
+      <CarouselRow
         title="Latest Episodes"
         items={latestEpisodes}
         type="anime"
+        autoPlay={true}
         client:load
       />
     )

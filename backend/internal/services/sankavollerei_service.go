@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
+	"os"
 	"sync"
 	"time"
 )
@@ -122,12 +124,24 @@ type SankavollereiService struct {
 }
 
 func NewSankavollereiService(prefix string) *SankavollereiService {
+	client := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	// Explicitly set proxy if available
+	if proxyEnv := os.Getenv("HTTP_PROXY"); proxyEnv != "" {
+		proxyURL, err := url.Parse(proxyEnv)
+		if err == nil {
+			client.Transport = &http.Transport{
+				Proxy: http.ProxyURL(proxyURL),
+			}
+		}
+	}
+
 	return &SankavollereiService{
 		BaseURL: "https://www.sankavollerei.com",
-		Client: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-		Prefix: prefix,
+		Client:  client,
+		Prefix:  prefix,
 		// 70 requests per minute = 1 token every ~857ms
 		RateLimiter: NewRateLimiter(70, 857*time.Millisecond),
 		Cache:       NewCache(),
@@ -153,7 +167,15 @@ func (s *SankavollereiService) makeRequest(endpoint string, result interface{}) 
 	}
 
 	// Make request
-	resp, err := s.Client.Get(url)
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return fmt.Errorf("fake request failed: %w", err)
+	}
+
+	// Add User-Agent to avoid blocking
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+
+	resp, err := s.Client.Do(req)
 	if err != nil {
 		return fmt.Errorf("request failed: %w", err)
 	}
