@@ -53,14 +53,24 @@ func (c *ProxyController) GetImage(ctx *fiber.Ctx) error {
 		return ctx.Status(500).SendString("Failed to create request: " + err.Error())
 	}
 
-	// Set headers to mimic a real browser to bypass hotlink protection
+	// Set headers to mimic a real browser request from the source site
+	// Most of these images are from Komikindo scrapers, so acting like Komikindo usually works
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8")
-	// Some sites check Referer. We can try setting it to the domain of the image or generic.
-	// For now, let's parse the host from the URL and use it as referer
-	if parsedURL, err := url.Parse(imageURL); err == nil {
-		req.Header.Set("Referer", parsedURL.Scheme+"://"+parsedURL.Host+"/")
-	}
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9,id;q=0.8")
+	req.Header.Set("Cache-Control", "no-cache")
+	req.Header.Set("Pragma", "no-cache")
+
+	// CRITICAL: Set Referer to the likely origin site (Komikindo)
+	// Some images might block unknown referers, but allow their own site or empty.
+	// We'll try masking as Komikindo first.
+	req.Header.Set("Referer", "https://komikindo.ch/")
+	req.Header.Set("Origin", "https://komikindo.ch")
+
+	// Add Fetch Metadata headers
+	req.Header.Set("Sec-Fetch-Dest", "image")
+	req.Header.Set("Sec-Fetch-Mode", "no-cors")
+	req.Header.Set("Sec-Fetch-Site", "cross-site")
 
 	// Execute request
 	resp, err := c.Client.Do(req)
