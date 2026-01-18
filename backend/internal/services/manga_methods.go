@@ -289,7 +289,9 @@ func (s *SankavollereiService) GetCompleteManga(page int) (*models.MangaListResp
 func (s *SankavollereiService) GetMangaDetail(slug string) (*models.MangaDetailResponse, error) {
 	// Wrapper struct to match upstream API JSON structure
 	var apiResult struct {
-		Success bool `json:"success"`
+		Success bool   `json:"success"`
+		Status  string `json:"status"` // Check for "Forbidden"
+		Message string `json:"message"`
 		Data    struct {
 			Title    string      `json:"title"`
 			Image    string      `json:"image"`
@@ -310,13 +312,28 @@ func (s *SankavollereiService) GetMangaDetail(slug string) (*models.MangaDetailR
 		return nil, fmt.Errorf("failed to get manga detail: %w", err)
 	}
 
+	// Check for API errors (e.g. Ban)
+	if !apiResult.Success && apiResult.Status == "Forbidden" {
+		return nil, fmt.Errorf("upstream API blocked request: %s", apiResult.Message)
+	}
+
+	// Deduplicate chapters
+	seen := make(map[string]bool)
+	uniqueChapters := make([]models.Chapter, 0, len(apiResult.Data.Chapters))
+	for _, ch := range apiResult.Data.Chapters {
+		if !seen[ch.Slug] {
+			seen[ch.Slug] = true
+			uniqueChapters = append(uniqueChapters, ch)
+		}
+	}
+
 	// Map to public response model
 	result := &models.MangaDetailResponse{
 		Title:    apiResult.Data.Title,
 		Image:    cleanImageURL(apiResult.Data.Image),
 		Synopsis: apiResult.Data.Synopsis,
 		Metadata: apiResult.Data.Metadata,
-		Chapters: apiResult.Data.Chapters,
+		Chapters: uniqueChapters,
 	}
 
 	return result, nil
