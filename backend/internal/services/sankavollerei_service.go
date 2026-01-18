@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
-	"os"
 	"sync"
 	"time"
 )
@@ -124,18 +122,10 @@ type SankavollereiService struct {
 }
 
 func NewSankavollereiService(prefix string) *SankavollereiService {
+	// Client uses DefaultTransport by default if Transport is nil.
+	// DefaultTransport respects HTTP_PROXY/HTTPS_PROXY environment variables.
 	client := &http.Client{
 		Timeout: 30 * time.Second,
-	}
-
-	// Explicitly set proxy if available
-	if proxyEnv := os.Getenv("HTTP_PROXY"); proxyEnv != "" {
-		proxyURL, err := url.Parse(proxyEnv)
-		if err == nil {
-			client.Transport = &http.Transport{
-				Proxy: http.ProxyURL(proxyURL),
-			}
-		}
 	}
 
 	return &SankavollereiService{
